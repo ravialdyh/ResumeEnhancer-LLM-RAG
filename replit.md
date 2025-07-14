@@ -27,14 +27,15 @@ The application follows a modular Python architecture with the following key des
 - **AI Integration**: Google Gemini 2.5 Flash model for natural language processing and analysis
 - **Document Processing**: Multi-format support (PDF, DOCX) with fallback parsing strategies
 - **RAG System**: FAISS vector database for similarity search and context retrieval
+- **Database**: PostgreSQL for persistent storage of analysis history and session tracking
 
 ## Key Components
 
 ### 1. Document Parser (`utils/document_parser.py`)
 - **Purpose**: Extracts text from PDF and DOCX files
-- **Libraries**: PyPDF2, pdfplumber for PDF parsing; python-docx for DOCX files
-- **Fallback Strategy**: Multiple PDF parsing libraries to handle different PDF formats
-- **Error Handling**: Graceful degradation with informative error messages
+- **Libraries**: PyMuPDF, pdfplumber, PyPDF2 for PDF parsing; python-docx for DOCX files
+- **Fallback Strategy**: Multiple PDF parsing libraries to handle different PDF formats including image-based PDFs
+- **Error Handling**: Graceful degradation with informative error messages and manual text input option
 
 ### 2. RAG System (`utils/rag_system.py`)
 - **Purpose**: Implements Retrieval-Augmented Generation for contextual analysis
@@ -62,6 +63,12 @@ The application follows a modular Python architecture with the following key des
 - **Purpose**: Streamlit frontend orchestrating all components
 - **Session Management**: Maintains state for resume text, job descriptions, and analysis results
 - **User Interface**: File upload, text input, and results display
+- **Database Integration**: Persistent storage of analysis history and session tracking
+
+### 6. Database Layer (`database/`)
+- **Models** (`models.py`): SQLAlchemy models for resume analyses, user sessions, and analysis history
+- **Service** (`service.py`): Database operations including saving analyses, tracking sessions, and retrieving history
+- **Schema**: PostgreSQL tables for persistent data storage with JSON fields for complex analysis results
 
 ## Data Flow
 

@@ -3,11 +3,13 @@ import os
 import tempfile
 from pathlib import Path
 import json
+import uuid
 
 from utils.document_parser import DocumentParser
 from utils.rag_system import RAGSystem
 from utils.resume_analyzer import ResumeAnalyzer
 from utils.text_processor import TextProcessor
+from database.service import DatabaseService
 
 # Page configuration
 st.set_page_config(
@@ -19,6 +21,19 @@ st.set_page_config(
 
 def initialize_session_state():
     """Initialize session state variables"""
+    # Initialize database service
+    if 'db_service' not in st.session_state:
+        st.session_state.db_service = DatabaseService()
+    
+    # Initialize session ID for database tracking
+    if 'session_id' not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+        # Create session in database
+        try:
+            st.session_state.db_service.create_or_update_session(st.session_state.session_id)
+        except Exception as e:
+            st.error(f"Database connection failed: {str(e)}")
+    
     if 'resume_text' not in st.session_state:
         st.session_state.resume_text = ""
     if 'job_description' not in st.session_state:
@@ -29,6 +44,8 @@ def initialize_session_state():
         st.session_state.optimized_resume = ""
     if 'improvements' not in st.session_state:
         st.session_state.improvements = []
+    if 'current_analysis_id' not in st.session_state:
+        st.session_state.current_analysis_id = None
 
 def main():
     initialize_session_state()
@@ -80,10 +97,35 @@ def main():
             
             st.markdown("---")
             
+            # Session statistics
+            if hasattr(st.session_state, 'db_service'):
+                try:
+                    stats = st.session_state.db_service.get_session_stats(st.session_state.session_id)
+                    if stats:
+                        st.subheader("Session Stats")
+                        st.metric("Analyses Done", stats.get('total_analyses', 0))
+                        if stats.get('average_match_score', 0) > 0:
+                            st.metric("Avg Match Score", f"{stats['average_match_score']}%")
+                        
+                        # Analysis history
+                        if stats.get('total_analyses', 0) > 0:
+                            with st.expander("📈 Recent Analyses"):
+                                history = st.session_state.db_service.get_analysis_history(st.session_state.session_id, 5)
+                                for h in history:
+                                    job_title = h.job_title or "Analysis"
+                                    score = f"{h.match_score}%" if h.match_score else "N/A"
+                                    st.markdown(f"**{job_title[:30]}{'...' if len(job_title) > 30 else ''}**")
+                                    st.markdown(f"Score: {score} | {h.created_at.strftime('%m/%d %H:%M')}")
+                                    st.markdown("---")
+                        
+                        st.markdown("---")
+                except Exception as e:
+                    st.warning("Database statistics unavailable")
+            
             # Clear session button
             if st.button("🔄 Clear Session", type="secondary"):
                 for key in st.session_state.keys():
-                    if key != 'sidebar_visible':  # Preserve sidebar state
+                    if key not in ['sidebar_visible', 'db_service', 'session_id']:  # Preserve essential state
                         del st.session_state[key]
                 st.rerun()
     
@@ -150,6 +192,20 @@ def handle_upload_and_input():
                                 st.session_state.job_description
                             )
                             st.session_state.analysis_results = results
+                            
+                            # Save analysis to database
+                            try:
+                                analysis = st.session_state.db_service.save_analysis(
+                                    session_id=st.session_state.session_id,
+                                    resume_text=st.session_state.resume_text,
+                                    job_description=st.session_state.job_description,
+                                    analysis_results=results,
+                                    original_filename=getattr(st.session_state, 'uploaded_filename', '')
+                                )
+                                st.session_state.current_analysis_id = analysis.id
+                            except Exception as db_error:
+                                st.warning(f"Analysis completed but couldn't save to database: {str(db_error)}")
+                            
                             st.success("✅ Analysis completed!")
                             st.balloons()
                             st.rerun()
@@ -175,6 +231,9 @@ def _render_input_form():
         if uploaded_file is not None:
             try:
                 with st.spinner("Parsing document..."):
+                    # Store filename for database
+                    st.session_state.uploaded_filename = uploaded_file.name
+                    
                     # Save uploaded file temporarily
                     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
@@ -311,6 +370,17 @@ def handle_analysis():
                         results
                     )
                     st.session_state.optimized_resume = optimized_resume
+                    
+                    # Update database with optimized resume
+                    if st.session_state.current_analysis_id:
+                        try:
+                            st.session_state.db_service.update_optimized_resume(
+                                st.session_state.current_analysis_id,
+                                optimized_resume
+                            )
+                        except Exception as db_error:
+                            st.warning(f"Optimized resume generated but couldn't update database: {str(db_error)}")
+                    
                     st.success("✅ Optimized resume generated!")
                 except Exception as e:
                     st.error(f"❌ Failed to generate optimized resume: {str(e)}")
