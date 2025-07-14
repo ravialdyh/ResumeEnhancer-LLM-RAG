@@ -13,6 +13,11 @@ except ImportError:
     pdfplumber = None
 
 try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None
+
+try:
     from docx import Document
 except ImportError:
     Document = None
@@ -50,38 +55,68 @@ class DocumentParser:
     def _parse_pdf(self, file_path: str) -> str:
         """Parse PDF file and extract text"""
         text = ""
+        errors = []
         
-        # Try pdfplumber first (better text extraction)
+        # Try PyMuPDF first (best for complex PDFs)
+        if fitz:
+            try:
+                doc = fitz.open(file_path)
+                for page_num in range(len(doc)):
+                    page = doc.load_page(page_num)
+                    page_text = page.get_text()
+                    if page_text and page_text.strip():
+                        text += page_text + "\n"
+                doc.close()
+                
+                if text.strip():
+                    self.logger.info("Successfully extracted text using PyMuPDF")
+                    return text.strip()
+            except Exception as e:
+                error_msg = f"PyMuPDF failed: {str(e)}"
+                self.logger.warning(error_msg)
+                errors.append(error_msg)
+        
+        # Try pdfplumber second (good text extraction)
         if pdfplumber:
             try:
+                text = ""  # Reset text
                 with pdfplumber.open(file_path) as pdf:
                     for page in pdf.pages:
                         page_text = page.extract_text()
-                        if page_text:
+                        if page_text and page_text.strip():
                             text += page_text + "\n"
                 
                 if text.strip():
+                    self.logger.info("Successfully extracted text using pdfplumber")
                     return text.strip()
             except Exception as e:
-                self.logger.warning(f"pdfplumber failed: {str(e)}, trying PyPDF2")
+                error_msg = f"pdfplumber failed: {str(e)}"
+                self.logger.warning(error_msg)
+                errors.append(error_msg)
         
         # Fallback to PyPDF2
         if PyPDF2:
             try:
+                text = ""  # Reset text
                 with open(file_path, 'rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
                     for page in pdf_reader.pages:
                         page_text = page.extract_text()
-                        if page_text:
+                        if page_text and page_text.strip():
                             text += page_text + "\n"
                 
                 if text.strip():
+                    self.logger.info("Successfully extracted text using PyPDF2")
                     return text.strip()
             except Exception as e:
-                self.logger.error(f"PyPDF2 failed: {str(e)}")
+                error_msg = f"PyPDF2 failed: {str(e)}"
+                self.logger.error(error_msg)
+                errors.append(error_msg)
         
+        # If all methods failed, provide detailed error message
         if not text.strip():
-            raise ValueError("Could not extract text from PDF. The file might be scanned or corrupted.")
+            error_details = " | ".join(errors) if errors else "No PDF parsing libraries available"
+            raise ValueError(f"Could not extract text from PDF. This might be a scanned document, image-based PDF, or have complex formatting. Errors: {error_details}")
         
         return text.strip()
     

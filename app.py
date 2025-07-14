@@ -164,6 +164,8 @@ def _render_input_form():
     
     with col1:
         st.subheader("📎 Upload Resume")
+        
+        # File upload option
         uploaded_file = st.file_uploader(
             "Choose your resume file",
             type=['pdf', 'docx'],
@@ -197,6 +199,21 @@ def _render_input_form():
                         
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
+                st.info("💡 If file upload isn't working, you can paste your resume text manually below")
+        
+        # Manual text input as fallback
+        st.markdown("**Or paste your resume text:**")
+        manual_resume_text = st.text_area(
+            "Paste your resume content here",
+            value=st.session_state.resume_text if not uploaded_file else "",
+            height=300,
+            help="Copy and paste your resume text as a backup option",
+            key="manual_resume_input"
+        )
+        
+        if manual_resume_text and manual_resume_text != st.session_state.resume_text:
+            st.session_state.resume_text = manual_resume_text
+            st.success(f"✅ Resume text added manually! ({len(manual_resume_text)} characters)")
     
     with col2:
         st.subheader("💼 Job Description")
