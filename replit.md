@@ -6,7 +6,9 @@ This is a Streamlit-based resume optimization application that uses AI-powered a
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language
+- UI Preference: Single-page layout instead of tabbed interface
+- Sidebar Preference: Collapsible sidebar to save space
 
 ## System Architecture
 
@@ -15,8 +17,10 @@ The application follows a modular Python architecture with the following key des
 ### Frontend Architecture
 - **Technology**: Streamlit web framework
 - **Rationale**: Chosen for rapid prototyping and ease of deployment for AI/ML applications
-- **Layout**: Wide layout with expandable sidebar for configuration options
+- **Layout**: Wide layout with collapsible sidebar and single-page dynamic interface
+- **UI Design**: Progressive disclosure - shows input form initially, then analysis and comparison as user completes steps
 - **State Management**: Uses Streamlit's session state for maintaining user data across interactions
+- **Navigation**: Dynamic content based on completion status rather than traditional tabs
 
 ### Backend Architecture
 - **Structure**: Utility-based modular design with separate classes for different functionalities

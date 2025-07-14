@@ -37,43 +37,129 @@ def main():
     st.title("🚀 Resume Optimization Tool")
     st.markdown("Enhance your resume with AI-powered analysis and targeted improvements")
     
-    # Sidebar for configuration
-    with st.sidebar:
-        st.header("Configuration")
-        
-        # API Key check
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_api_key:
-            st.error("⚠️ GEMINI_API_KEY environment variable not found!")
-            st.info("Please set your Gemini API key in the environment variables.")
-            return
-        else:
-            st.success("✅ Gemini API key configured")
-        
-        st.markdown("---")
-        
-        # Clear session button
-        if st.button("🔄 Clear Session", type="secondary"):
-            for key in st.session_state.keys():
-                del st.session_state[key]
+    # Sidebar toggle
+    if 'sidebar_visible' not in st.session_state:
+        st.session_state.sidebar_visible = True
+    
+    # Sidebar toggle button in main area
+    col1, col2 = st.columns([1, 8])
+    with col1:
+        if st.button("☰" if not st.session_state.sidebar_visible else "✕", 
+                    help="Toggle sidebar", key="sidebar_toggle"):
+            st.session_state.sidebar_visible = not st.session_state.sidebar_visible
             st.rerun()
     
-    # Main content tabs
-    tab1, tab2, tab3 = st.tabs(["📄 Upload & Input", "🔍 Analysis", "📊 Comparison"])
+    # Conditional sidebar
+    if st.session_state.sidebar_visible:
+        with st.sidebar:
+            st.header("Configuration")
+            
+            # API Key check
+            gemini_api_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_api_key:
+                st.error("⚠️ GEMINI_API_KEY environment variable not found!")
+                st.info("Please set your Gemini API key in the environment variables.")
+                return
+            else:
+                st.success("✅ Gemini API key configured")
+            
+            st.markdown("---")
+            
+            # Progress indicator
+            st.subheader("Progress")
+            progress_items = [
+                ("Resume uploaded", bool(st.session_state.resume_text)),
+                ("Job description added", bool(st.session_state.job_description)),
+                ("Analysis completed", bool(st.session_state.analysis_results)),
+                ("Optimized resume generated", bool(st.session_state.optimized_resume))
+            ]
+            
+            for item, completed in progress_items:
+                icon = "✅" if completed else "⭕"
+                st.markdown(f"{icon} {item}")
+            
+            st.markdown("---")
+            
+            # Clear session button
+            if st.button("🔄 Clear Session", type="secondary"):
+                for key in st.session_state.keys():
+                    if key != 'sidebar_visible':  # Preserve sidebar state
+                        del st.session_state[key]
+                st.rerun()
     
-    with tab1:
+    # Dynamic content based on progress
+    has_inputs = st.session_state.resume_text and st.session_state.job_description
+    
+    if not has_inputs:
         handle_upload_and_input()
-    
-    with tab2:
+    elif not st.session_state.analysis_results:
+        handle_upload_and_input()
+        st.markdown("---")
         handle_analysis()
-    
-    with tab3:
+    else:
+        handle_analysis()
+        st.markdown("---")
         handle_comparison()
 
 def handle_upload_and_input():
     """Handle resume upload and job description input"""
-    st.header("Step 1: Upload Resume & Job Description")
-    
+    # Show condensed view if already have inputs
+    if st.session_state.resume_text and st.session_state.job_description:
+        st.header("📄 Input Summary")
+        
+        col1, col2, col3 = st.columns([3, 3, 2])
+        with col1:
+            st.metric("Resume", "Uploaded", f"{len(st.session_state.resume_text)} chars")
+        with col2:
+            st.metric("Job Description", "Added", f"{len(st.session_state.job_description)} chars")
+        with col3:
+            if st.button("✏️ Edit Inputs", type="secondary"):
+                st.session_state.show_edit_inputs = True
+                st.rerun()
+        
+        # Show edit interface if requested
+        if st.session_state.get('show_edit_inputs', False):
+            st.markdown("---")
+            st.subheader("Edit Inputs")
+            _render_input_form()
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("💾 Save Changes", type="primary"):
+                    st.session_state.show_edit_inputs = False
+                    st.rerun()
+            with col2:
+                if st.button("❌ Cancel", type="secondary"):
+                    st.session_state.show_edit_inputs = False
+                    st.rerun()
+    else:
+        st.header("Step 1: Upload Resume & Job Description")
+        _render_input_form()
+        
+        # Analysis trigger
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔍 Analyze Resume", type="primary", use_container_width=True):
+                if st.session_state.resume_text and st.session_state.job_description:
+                    with st.spinner("Analyzing resume..."):
+                        try:
+                            analyzer = ResumeAnalyzer()
+                            results = analyzer.analyze_resume(
+                                st.session_state.resume_text,
+                                st.session_state.job_description
+                            )
+                            st.session_state.analysis_results = results
+                            st.success("✅ Analysis completed!")
+                            st.balloons()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Analysis failed: {str(e)}")
+                else:
+                    st.warning("⚠️ Please upload a resume and enter a job description first.")
+
+def _render_input_form():
+    """Render the input form for resume and job description"""
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -126,36 +212,13 @@ def handle_upload_and_input():
         
         if job_description:
             st.success(f"✅ Job description entered ({len(job_description)} characters)")
-    
-    # Analysis trigger
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🔍 Analyze Resume", type="primary", use_container_width=True):
-            if st.session_state.resume_text and st.session_state.job_description:
-                with st.spinner("Analyzing resume..."):
-                    try:
-                        analyzer = ResumeAnalyzer()
-                        results = analyzer.analyze_resume(
-                            st.session_state.resume_text,
-                            st.session_state.job_description
-                        )
-                        st.session_state.analysis_results = results
-                        st.success("✅ Analysis completed!")
-                        st.balloons()
-                    except Exception as e:
-                        st.error(f"❌ Analysis failed: {str(e)}")
-            else:
-                st.warning("⚠️ Please upload a resume and enter a job description first.")
 
 def handle_analysis():
     """Handle analysis results display"""
-    st.header("Step 2: AI Analysis Results")
-    
     if not st.session_state.analysis_results:
-        st.info("📋 Upload your resume and job description in the previous tab to see analysis results.")
         return
+    
+    st.header("🔍 AI Analysis Results")
     
     results = st.session_state.analysis_results
     
@@ -237,11 +300,10 @@ def handle_analysis():
 
 def handle_comparison():
     """Handle side-by-side comparison view"""
-    st.header("Step 3: Resume Comparison")
-    
     if not st.session_state.optimized_resume:
-        st.info("📋 Complete the analysis in the previous tabs to see the comparison view.")
         return
+    
+    st.header("📊 Resume Comparison")
     
     # Comparison view
     col1, col2 = st.columns([1, 1])
