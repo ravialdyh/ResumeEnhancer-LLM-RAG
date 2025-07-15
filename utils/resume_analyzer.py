@@ -4,8 +4,7 @@ import logging
 from typing import Dict, List, Any
 import re
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 from utils.rag_system import RAGSystem
 from utils.text_processor import TextProcessor
@@ -51,7 +50,7 @@ class ResumeAnalyzer:
             response = self.client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=analysis_prompt,
-                config=types.GenerateContentConfig(
+                generation_config=genai.types.GenerationConfig(
                     response_mime_type="application/json",
                     temperature=0.3
                 )

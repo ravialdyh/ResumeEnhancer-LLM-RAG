@@ -1,0 +1,20 @@
+# Core App
+streamlit
+google-generativeai
+
+# Database
+sqlalchemy
+psycopg2-binary
+
+# Document & Text Processing
+pypdf2
+pdfplumber
+pymupdf
+python-docx
+numpy
+
+# RAG System
+sentence-transformers
+
+# For local environment variables
+python-dotenv
