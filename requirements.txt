@@ -8,6 +8,7 @@ psycopg2-binary
 
 # Document & Text Processing
 pypdf2
+fpdf
 pdfplumber
 pymupdf
 python-docx

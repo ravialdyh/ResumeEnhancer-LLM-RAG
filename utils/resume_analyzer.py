@@ -20,7 +20,8 @@ class ResumeAnalyzer:
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required")
         
-        self.client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
         self.rag_system = RAGSystem()
         self.text_processor = TextProcessor()
     
@@ -47,10 +48,9 @@ class ResumeAnalyzer:
             analysis_prompt = self._build_analysis_prompt(resume_text, job_description, context)
             
             # Get analysis from Gemini
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=analysis_prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = self.model.generate_content(
+                analysis_prompt,
+                generation_config=genai.GenerationConfig(
                     response_mime_type="application/json",
                     temperature=0.3
                 )
@@ -95,10 +95,9 @@ class ResumeAnalyzer:
             )
             
             # Get optimized resume from Gemini
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=optimization_prompt,
-                config=types.GenerateContentConfig(
+            response = self.model.generate_content(
+                optimization_prompt,
+                generation_config=genai.GenerationConfig(
                     temperature=0.4
                 )
             )

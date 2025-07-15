@@ -1,13 +1,14 @@
 import streamlit as st
 import os
-
-from dotenv import load_dotenv
-load_dotenv()
-
 import tempfile
 from pathlib import Path
 import json
 import uuid
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from fpdf import FPDF
 
 from utils.document_parser import DocumentParser
 from utils.rag_system import RAGSystem
@@ -51,87 +52,103 @@ def initialize_session_state():
     if 'current_analysis_id' not in st.session_state:
         st.session_state.current_analysis_id = None
 
+def generate_pdf(resume_text: str) -> bytes:
+    """Generate a PDF from the resume text"""
+    pdf = FPDF()
+    pdf.add_font('Arial', '', '/System/Library/Fonts/Supplemental/Arial.ttf', uni=True)
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)  # Smaller font for better fit
+    pdf.set_left_margin(10)
+    pdf.set_right_margin(10)
+    pdf.set_top_margin(10)
+    
+    lines = resume_text.split('\n')
+    for line in lines:
+        pdf.multi_cell(0, 5, line)
+    
+    return pdf.output(dest='S').encode('latin-1')
+
 def main():
     initialize_session_state()
+
+    # Inject custom CSS to make the default sidebar collapse button always visible
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebarHeader"] button {
+                visibility: visible;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     
     # Header
     st.title("🚀 Resume Optimization Tool")
     st.markdown("Enhance your resume with AI-powered analysis and targeted improvements")
     
-    # Sidebar toggle
-    if 'sidebar_visible' not in st.session_state:
-        st.session_state.sidebar_visible = True
-    
-    # Sidebar toggle button in main area
-    col1, col2 = st.columns([1, 8])
-    with col1:
-        if st.button("☰" if not st.session_state.sidebar_visible else "✕", 
-                    help="Toggle sidebar", key="sidebar_toggle"):
-            st.session_state.sidebar_visible = not st.session_state.sidebar_visible
+    # The custom sidebar toggle logic has been removed to use the default Streamlit sidebar.
+    # The CSS injected above makes its collapse button always visible.
+    with st.sidebar:
+        st.header("Configuration")
+        
+        # API Key check
+        gemini_api_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_api_key:
+            st.error("⚠️ GEMINI_API_KEY environment variable not found!")
+            st.info("Please set your Gemini API key in the environment variables.")
+            return
+        else:
+            st.success("✅ Gemini API key configured")
+        
+        st.markdown("---")
+        
+        # Progress indicator
+        st.subheader("Progress")
+        progress_items = [
+            ("Resume uploaded", bool(st.session_state.resume_text)),
+            ("Job description added", bool(st.session_state.job_description)),
+            ("Analysis completed", bool(st.session_state.analysis_results)),
+            ("Optimized resume generated", bool(st.session_state.optimized_resume))
+        ]
+        
+        for item, completed in progress_items:
+            icon = "✅" if completed else "⭕"
+            st.markdown(f"{icon} {item}")
+        
+        st.markdown("---")
+        
+        # Session statistics
+        if hasattr(st.session_state, 'db_service'):
+            try:
+                stats = st.session_state.db_service.get_session_stats(st.session_state.session_id)
+                if stats:
+                    st.subheader("Session Stats")
+                    st.metric("Analyses Done", stats.get('total_analyses', 0))
+                    if stats.get('average_match_score', 0) > 0:
+                        st.metric("Avg Match Score", f"{stats['average_match_score']:.1f}%")
+                    
+                    # Analysis history
+                    if stats.get('total_analyses', 0) > 0:
+                        with st.expander("📈 Recent Analyses"):
+                            history = st.session_state.db_service.get_analysis_history(st.session_state.session_id, 5)
+                            for h in history:
+                                job_title = h.job_title or "Analysis"
+                                score = f"{h.match_score}%" if h.match_score else "N/A"
+                                st.markdown(f"**{job_title[:30]}{'...' if len(job_title) > 30 else ''}**")
+                                st.markdown(f"Score: {score} | {h.created_at.strftime('%m/%d %H:%M')}")
+                                st.markdown("---")
+                    
+                    st.markdown("---")
+            except Exception as e:
+                st.warning(f"Database statistics unavailable: {e}")
+        
+        # Clear session button
+        if st.button("🔄 Clear Session", type="secondary"):
+            keys_to_delete = [key for key in st.session_state.keys() if key not in ['db_service', 'session_id']]
+            for key in keys_to_delete:
+                del st.session_state[key]
             st.rerun()
-    
-    # Conditional sidebar
-    if st.session_state.sidebar_visible:
-        with st.sidebar:
-            st.header("Configuration")
-            
-            # API Key check
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            if not gemini_api_key:
-                st.error("⚠️ GEMINI_API_KEY environment variable not found!")
-                st.info("Please set your Gemini API key in the environment variables.")
-                return
-            else:
-                st.success("✅ Gemini API key configured")
-            
-            st.markdown("---")
-            
-            # Progress indicator
-            st.subheader("Progress")
-            progress_items = [
-                ("Resume uploaded", bool(st.session_state.resume_text)),
-                ("Job description added", bool(st.session_state.job_description)),
-                ("Analysis completed", bool(st.session_state.analysis_results)),
-                ("Optimized resume generated", bool(st.session_state.optimized_resume))
-            ]
-            
-            for item, completed in progress_items:
-                icon = "✅" if completed else "⭕"
-                st.markdown(f"{icon} {item}")
-            
-            st.markdown("---")
-            
-            # Session statistics
-            if hasattr(st.session_state, 'db_service'):
-                try:
-                    stats = st.session_state.db_service.get_session_stats(st.session_state.session_id)
-                    if stats:
-                        st.subheader("Session Stats")
-                        st.metric("Analyses Done", stats.get('total_analyses', 0))
-                        if stats.get('average_match_score', 0) > 0:
-                            st.metric("Avg Match Score", f"{stats['average_match_score']}%")
-                        
-                        # Analysis history
-                        if stats.get('total_analyses', 0) > 0:
-                            with st.expander("📈 Recent Analyses"):
-                                history = st.session_state.db_service.get_analysis_history(st.session_state.session_id, 5)
-                                for h in history:
-                                    job_title = h.job_title or "Analysis"
-                                    score = f"{h.match_score}%" if h.match_score else "N/A"
-                                    st.markdown(f"**{job_title[:30]}{'...' if len(job_title) > 30 else ''}**")
-                                    st.markdown(f"Score: {score} | {h.created_at.strftime('%m/%d %H:%M')}")
-                                    st.markdown("---")
-                        
-                        st.markdown("---")
-                except Exception as e:
-                    st.warning("Database statistics unavailable")
-            
-            # Clear session button
-            if st.button("🔄 Clear Session", type="secondary"):
-                for key in st.session_state.keys():
-                    if key not in ['sidebar_visible', 'db_service', 'session_id']:  # Preserve essential state
-                        del st.session_state[key]
-                st.rerun()
     
     # Dynamic content based on progress
     has_inputs = st.session_state.resume_text and st.session_state.job_description
@@ -144,8 +161,7 @@ def main():
         handle_analysis()
     else:
         handle_analysis()
-        st.markdown("---")
-        handle_comparison()
+        # Removed the call to handle_comparison() as comparison is not needed
 
 def handle_upload_and_input():
     """Handle resume upload and job description input"""
@@ -186,9 +202,10 @@ def handle_upload_and_input():
         st.markdown("---")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
+            st.info("Analysis may take 30-60 seconds depending on document size and AI processing.")
             if st.button("🔍 Analyze Resume", type="primary", use_container_width=True):
                 if st.session_state.resume_text and st.session_state.job_description:
-                    with st.spinner("Analyzing resume..."):
+                    with st.spinner("Analyzing resume... Please wait, this may take up to 1 minute."):
                         try:
                             analyzer = ResumeAnalyzer()
                             results = analyzer.analyze_resume(
@@ -262,28 +279,16 @@ def _render_input_form():
                         
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
-                st.info("💡 If file upload isn't working, you can paste your resume text manually below")
+                # The info message about pasting manually has been removed as that option is no longer available.
         
-        # Manual text input as fallback
-        st.markdown("**Or paste your resume text:**")
-        manual_resume_text = st.text_area(
-            "Paste your resume content here",
-            value=st.session_state.resume_text if not uploaded_file else "",
-            height=300,
-            help="Copy and paste your resume text as a backup option",
-            key="manual_resume_input"
-        )
-        
-        if manual_resume_text and manual_resume_text != st.session_state.resume_text:
-            st.session_state.resume_text = manual_resume_text
-            st.success(f"✅ Resume text added manually! ({len(manual_resume_text)} characters)")
+        # The manual text input section has been removed to enforce file upload only.
     
     with col2:
         st.subheader("💼 Job Description")
         job_description = st.text_area(
             "Enter the job description or role requirements",
             value=st.session_state.job_description,
-            height=300,
+            height=455, # Adjusted height to better balance the layout
             help="Paste the complete job description, requirements, and qualifications"
         )
         
@@ -364,8 +369,9 @@ def handle_analysis():
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        st.info("Optimization may take 30-60 seconds depending on document size and AI processing.")
         if st.button("✨ Generate Optimized Resume", type="primary", use_container_width=True):
-            with st.spinner("Generating optimized resume..."):
+            with st.spinner("Generating optimized resume... Please wait, this may take up to 1 minute."):
                 try:
                     analyzer = ResumeAnalyzer()
                     optimized_resume = analyzer.generate_optimized_resume(
@@ -386,100 +392,33 @@ def handle_analysis():
                             st.warning(f"Optimized resume generated but couldn't update database: {str(db_error)}")
                     
                     st.success("✅ Optimized resume generated!")
+                    st.rerun()
                 except Exception as e:
                     st.error(f"❌ Failed to generate optimized resume: {str(e)}")
-
-def handle_comparison():
-    """Handle side-by-side comparison view"""
-    if not st.session_state.optimized_resume:
-        return
     
-    st.header("📊 Resume Comparison")
-    
-    # Comparison view
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("📄 Original Resume")
-        st.text_area(
-            "Original Content",
-            value=st.session_state.resume_text,
-            height=600,
-            disabled=True,
-            key="original_resume"
-        )
-    
-    with col2:
-        st.subheader("✨ Optimized Resume")
-        st.text_area(
-            "Optimized Content",
-            value=st.session_state.optimized_resume,
-            height=600,
-            disabled=True,
-            key="optimized_resume"
-        )
-    
-    # Improvement highlights
-    if st.session_state.analysis_results and st.session_state.analysis_results.get('improvements'):
+    # Show PDF download if optimized resume is generated
+    if st.session_state.optimized_resume:
         st.markdown("---")
-        st.subheader("🎯 Key Improvements Made")
-        
-        improvements = st.session_state.analysis_results['improvements']
-        for i, improvement in enumerate(improvements[:3]):  # Show top 3 improvements
-            with st.expander(f"✅ {improvement.get('category', 'Improvement')} - {improvement.get('issue', '')[:50]}..."):
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    st.markdown("**Before:**")
-                    st.info(improvement.get('before_text', 'Original text section'))
-                with col2:
-                    st.markdown("**After:**")
-                    st.success(improvement.get('after_text', improvement.get('suggestion', 'Improved text section')))
-    
-    # Export options
-    st.markdown("---")
-    st.subheader("📥 Export Options")
-    
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.download_button(
-            label="📄 Download Optimized Resume (TXT)",
-            data=st.session_state.optimized_resume,
-            file_name="optimized_resume.txt",
-            mime="text/plain",
+        st.subheader("📥 Download Optimized Resume")
+        pdf_data = generate_pdf(st.session_state.optimized_resume)
+        st.download_button(
+            label="📄 Download Optimized Resume (PDF)",
+            data=pdf_data,
+            file_name="optimized_resume.pdf",
+            mime="application/pdf",
             use_container_width=True
-        ):
-            st.success("✅ Resume downloaded!")
-    
-    with col2:
-        # Generate improvement report
+        )
+        
+        # Optional: Download analysis report
         if st.session_state.analysis_results:
-            report = generate_improvement_report(st.session_state.analysis_results)
+            report_str = json.dumps(st.session_state.analysis_results, indent=2)
             st.download_button(
                 label="📊 Download Analysis Report (JSON)",
-                data=json.dumps(report, indent=2),
+                data=report_str,
                 file_name="resume_analysis_report.json",
                 mime="application/json",
                 use_container_width=True
             )
-    
-    with col3:
-        # Copy to clipboard functionality
-        if st.button("📋 Copy Optimized Resume", use_container_width=True):
-            st.code(st.session_state.optimized_resume, language=None)
-            st.info("💡 Use Ctrl+A to select all, then Ctrl+C to copy")
-
-def generate_improvement_report(analysis_results):
-    """Generate a comprehensive improvement report"""
-    return {
-        "analysis_date": str(st.session_state.get('analysis_date', 'N/A')),
-        "match_score": analysis_results.get('match_score', 0),
-        "overall_rating": analysis_results.get('overall_rating', 'N/A'),
-        "missing_keywords": analysis_results.get('missing_keywords', []),
-        "strengths": analysis_results.get('strengths', []),
-        "improvements": analysis_results.get('improvements', []),
-        "recommendations": analysis_results.get('recommendations', [])
-    }
 
 if __name__ == "__main__":
     main()
