@@ -1,9 +1,11 @@
 import streamlit as st
 import os
 import tempfile
-from pathlib import Path
 import json
 import uuid
+
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -11,9 +13,7 @@ load_dotenv()
 from fpdf import FPDF
 
 from utils.document_parser import DocumentParser
-from utils.rag_system import RAGSystem
 from utils.resume_analyzer import ResumeAnalyzer
-from utils.text_processor import TextProcessor
 from database.service import DatabaseService
 
 # Page configuration
@@ -55,7 +55,7 @@ def initialize_session_state():
 def generate_pdf(resume_text: str) -> bytes:
     """Generate a PDF from the resume text"""
     pdf = FPDF()
-    pdf.add_font('Arial', '', '/System/Library/Fonts/Supplemental/Arial.ttf', uni=True)
+    pdf.add_font('Arial', '', 'fonts/Arial.ttf', uni=True)
     pdf.add_page()
     pdf.set_font("Arial", size=10)  # Smaller font for better fit
     pdf.set_left_margin(10)
@@ -92,14 +92,33 @@ def main():
     with st.sidebar:
         st.header("Configuration")
         
-        # API Key check
+        # API Key check and validation
         gemini_api_key = os.getenv("GEMINI_API_KEY")
+        
         if not gemini_api_key:
             st.error("⚠️ GEMINI_API_KEY environment variable not found!")
-            st.info("Please set your Gemini API key in the environment variables.")
-            return
+            st.session_state.api_key_validated = False
+        # Only validate if the key exists and hasn't been validated yet.
+        elif not st.session_state.get('api_key_validated', False):
+            with st.spinner("Validating API key..."):
+                try:
+                    genai.configure(api_key=gemini_api_key)
+                    # Use a lightweight call like listing models to validate the key.
+                    next(genai.list_models())
+                    st.session_state.api_key_validated = True
+                    st.rerun() # Rerun to update the UI immediately after validation
+                except (google_exceptions.PermissionDenied, google_exceptions.Unauthenticated):
+                    st.error("🚫 Invalid Gemini API key. Please check your credentials.")
+                    st.session_state.api_key_validated = False
+                except Exception as e:
+                    st.error(f"API key validation failed. Please ensure you have internet access. Error: {e}")
+                    st.session_state.api_key_validated = False
+
+        # Display the final status of the API key
+        if st.session_state.get('api_key_validated', False):
+            st.success("✅ Gemini API key configured and validated")
         else:
-            st.success("✅ Gemini API key configured")
+            st.warning("Please provide a valid API key to proceed.")
         
         st.markdown("---")
         
@@ -203,7 +222,8 @@ def handle_upload_and_input():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.info("Analysis may take 30-60 seconds depending on document size and AI processing.")
-            if st.button("🔍 Analyze Resume", type="primary", use_container_width=True):
+            is_api_key_valid = st.session_state.get('api_key_validated', False)
+            if st.button("🔍 Analyze Resume", type="primary", use_container_width=True, disabled=not is_api_key_valid):
                 if st.session_state.resume_text and st.session_state.job_description:
                     with st.spinner("Analyzing resume... Please wait, this may take up to 1 minute."):
                         try:

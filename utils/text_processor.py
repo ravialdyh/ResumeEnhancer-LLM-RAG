@@ -338,3 +338,110 @@ class TextProcessor:
             achievements.extend([match.strip() for match in matches])
         
         return list(set(achievements))
+    
+    def parse_resume_to_structured_dict(self, resume_text: str) -> Dict[str, Any]:
+            """
+            Parses resume text into a structured dictionary.
+            This is a simplified example; a more robust implementation might use more advanced regex.
+            """
+            sections = self.extract_resume_sections(resume_text)
+            structured_resume = {}
+
+            # Parse Summary
+            if 'summary' in sections:
+                structured_resume['summary'] = sections['summary']
+            
+            # Parse Contact Info (usually in the header)
+            if 'header' in sections:
+                header_text = sections['header']
+                structured_resume['contact_info'] = {
+                    'name': header_text.split('\n')[0],
+                    'details': '\n'.join(header_text.split('\n')[1:])
+                }
+
+            # Parse Experience
+            if 'experience' in sections:
+                structured_resume['experience'] = []
+                # This regex is an example; it might need refinement for different resume formats
+                jobs = re.split(r'\n(?=[A-Z\s&]+\s*\|)', sections['experience']) # Split by "COMPANY | Location"
+                for job in jobs:
+                    if not job.strip(): continue
+                    lines = job.strip().split('\n')
+                    job_title_line = lines[1] if len(lines) > 1 else ''
+                    date_line = re.search(r'(\w+\s\d{4}\s*–\s*\w+)', job_title_line)
+                    
+                    job_entry = {
+                        "company_location": lines[0].strip(),
+                        "title": job_title_line.split(' | ')[0].replace('**', '').strip(),
+                        "dates": date_line.group(0) if date_line else "",
+                        "bullets": [l.replace('*','').strip() for l in lines[2:] if l.strip().startswith('*')]
+                    }
+                    structured_resume['experience'].append(job_entry)
+
+            # Add stubs for other sections to be parsed
+            structured_resume['education'] = sections.get('education', '')
+            structured_resume['skills'] = sections.get('skills', '')
+
+            return structured_resume
+
+
+    def generate_optimized_resume(self, resume_structure: Dict[str, Any], job_description: str, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Generate an optimized version of the resume from a structured dictionary.
+            
+            Args:
+                resume_structure (Dict): Structured dictionary of the original resume.
+                job_description (str): Job description/requirements.
+                analysis_results (Dict): Previous analysis results.
+            
+            Returns:
+                Dict: A new structured dictionary with optimized content.
+            """
+            try:
+                optimization_prompt = self._build_structured_optimization_prompt(
+                    resume_structure, job_description, analysis_results
+                )
+                
+                response = self.model.generate_content(
+                    optimization_prompt,
+                    generation_config=genai.GenerationConfig(
+                        response_mime_type="application/json",
+                        temperature=0.4
+                    )
+                )
+                
+                if not response.text:
+                    raise ValueError("Empty response from Gemini API for optimization")
+                
+                # The model now returns a JSON object that matches our structured format
+                optimized_structure = json.loads(response.text)
+                return optimized_structure
+                
+            except Exception as e:
+                self.logger.error(f"Error generating optimized resume structure: {str(e)}")
+                raise
+
+        # You also need a new prompt-building function for this structured approach.
+        # Add this method to the ResumeAnalyzer class.
+    def _build_structured_optimization_prompt(self, resume_structure: Dict[str, Any], job_description: str, analysis_results: Dict[str, Any]) -> str:
+            """Build the structured optimization prompt for Gemini."""
+            
+            improvements_text = "\n".join([
+                f"- {imp.get('issue', '')}: {imp.get('suggestion', '')}"
+                for imp in analysis_results.get('improvements', [])[:5]
+            ])
+
+            # The f-string starts here with f"""
+            return f"""
+                You are an expert resume writer. Rewrite the content of the following JSON resume structure to be more impactful and better aligned with the provided job description.
+
+                **Job Description:**
+                {job_description}
+
+                **Key Issues from Initial Analysis:**
+                {improvements_text}
+
+                **Original Resume Content (in JSON format):**
+                ```json
+                {json.dumps(resume_structure, indent=2)}```
+            """
