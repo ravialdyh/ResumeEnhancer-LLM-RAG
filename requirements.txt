@@ -13,6 +13,7 @@ pdfplumber
 pymupdf
 python-docx
 numpy
+xhtml2pdf
 
 # RAG System
 sentence-transformers

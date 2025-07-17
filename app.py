@@ -16,6 +16,9 @@ from utils.document_parser import DocumentParser
 from utils.resume_analyzer import ResumeAnalyzer
 from database.service import DatabaseService
 
+from io import BytesIO
+from xhtml2pdf import pisa
+
 # Page configuration
 st.set_page_config(
     page_title="Resume Optimization Tool",
@@ -52,21 +55,88 @@ def initialize_session_state():
     if 'current_analysis_id' not in st.session_state:
         st.session_state.current_analysis_id = None
 
-def generate_pdf(resume_text: str) -> bytes:
-    """Generate a PDF from the resume text"""
-    pdf = FPDF()
-    pdf.add_font('Arial', '', 'fonts/Arial.ttf', uni=True)
-    pdf.add_page()
-    pdf.set_font("Arial", size=10)  # Smaller font for better fit
-    pdf.set_left_margin(10)
-    pdf.set_right_margin(10)
-    pdf.set_top_margin(10)
+def populate_html_template(resume_data: dict) -> str:
+    """
+    Populates the HTML template with optimized resume data.
+    This function dynamically builds the HTML for sections like experience.
+    """
+    # Helper to build experience HTML
+    def build_experience_html(experiences):
+        html = ""
+        for job in experiences:
+            bullets_html = "".join([f"<li>{bullet}</li>" for bullet in job.get('bullets', [])])
+            html += f"""
+            <div class="experience-item">
+                <div class="institution">{job.get('company_location', '')}</div>
+                <div class="location">{job.get('location', ' ')}</div>
+                <div class="clear"></div>
+                <div class="position">{job.get('title', '')}</div>
+                <div class="date">{job.get('dates', '')}</div>
+                <div class="clear"></div>
+                <ul>{bullets_html}</ul>
+            </div>
+            """
+        return html
+
+    # The main HTML structure from your example
+    # Note: We are injecting data using f-string formatting.
+    html_template = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Resume</title>
+        <style>
+            @font-face {{
+                font-family: 'Arial';
+                src: url('fonts/Arial.ttf');
+            }}
+            body {{ font-family: 'Arial', sans-serif; line-height: 1.4; margin: 0 auto; padding: 18px; max-width: 1100px; font-size: 11pt; }}
+            h1 {{ text-align: center; margin-bottom: 5px; border-bottom: 2px solid black; padding-bottom: 7px; font-size: 20pt; }}
+            .contact-info {{ text-align: center; margin-bottom: 15px; font-sze: 10pt; }}
+            .section-title {{ border-bottom: 1px solid black; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 7px; padding-bottom: 3px; font-size: 11pt; }}
+            .experience-item {{ margin-bottom: 10px; margin-top: 10px; }}
+            .institution {{ font-weight: bold; display: inline-block; }}
+            .location {{ float: right; }}
+            .position {{ font-weight: bold; }}
+            .date {{ float: right; }}
+            ul {{ margin-top: 4px; margin-bottom: 6px; padding-left: 22px; }}
+            li {{ margin-bottom: 3px; }}
+            .clear {{ clear: both; }}
+            p {{ margin-top: 4px; margin-bottom: 4px; }}
+            .contact-line {{ margin: 1px 0; line-height: 1.3; }}
+        </style>
+    </head>
+    <body>
+        <h1>{resume_data.get('contact_info', {}).get('name', '')}</h1>
+        <div class="contact-info">
+            <p class="contact-line">{resume_data.get('contact_info', {}).get('details', '').replace('•', '•<br/>')}</p>
+        </div>
+
+        <div class="section-title">SUMMARY</div>
+        <p>{resume_data.get('summary', '')}</p>
+
+        <div class="section-title">EXPERIENCE</div>
+        {build_experience_html(resume_data.get('experience', []))}
+
+        </body>
+    </html>
+    """
+    return html_template
+
+def generate_templated_pdf(resume_data: dict) -> bytes:
+    """Generate a PDF from the structured resume data using an HTML template."""
+    html_content = populate_html_template(resume_data)
     
-    lines = resume_text.split('\n')
-    for line in lines:
-        pdf.multi_cell(0, 5, line)
+    result = BytesIO()
+    pdf = pisa.CreatePDF(BytesIO(html_content.encode("UTF-8")), dest=result)
     
-    return pdf.output(dest='S').encode('latin-1')
+    if not pdf.err:
+        return result.getvalue()
+    else:
+        st.error(f"Error converting HTML to PDF: {pdf.err}")
+        return None
+
 
 def main():
     initialize_session_state()
@@ -394,25 +464,35 @@ def handle_analysis():
             with st.spinner("Generating optimized resume... Please wait, this may take up to 1 minute."):
                 try:
                     analyzer = ResumeAnalyzer()
-                    optimized_resume = analyzer.generate_optimized_resume(
-                        st.session_state.resume_text,
-                        st.session_state.job_description,
-                        results
-                    )
-                    st.session_state.optimized_resume = optimized_resume
+                    # 1. Parse the original resume text into a structured dictionary
+                    resume_structure = analyzer.text_processor.parse_resume_to_structured_dict(st.session_state.resume_text)
                     
-                    # Update database with optimized resume
+                    # 2. Send the structured data to the AI for optimization
+                    optimized_structure = analyzer.generate_optimized_resume(
+                        resume_structure,
+                        st.session_state.job_description,
+                        st.session_state.analysis_results  # Use the stored analysis results
+                    )
+                    
+                    # 3. Store the structured result, not plain text
+                    st.session_state.optimized_resume = optimized_structure
+                    
+                    # (Optional) Update database with the optimized JSON
                     if st.session_state.current_analysis_id:
                         try:
+                            # Note: Your DB schema expects a string, so we dump the JSON
+                            optimized_text = json.dumps(optimized_structure, indent=2)
                             st.session_state.db_service.update_optimized_resume(
                                 st.session_state.current_analysis_id,
-                                optimized_resume
+                                optimized_text
                             )
                         except Exception as db_error:
                             st.warning(f"Optimized resume generated but couldn't update database: {str(db_error)}")
                     
                     st.success("✅ Optimized resume generated!")
                     st.rerun()
+                except json.JSONDecodeError as json_error:
+                    st.error(f"❌ Failed to parse AI response. The model did not return valid JSON. Error: {json_error}")
                 except Exception as e:
                     st.error(f"❌ Failed to generate optimized resume: {str(e)}")
     
@@ -420,7 +500,7 @@ def handle_analysis():
     if st.session_state.optimized_resume:
         st.markdown("---")
         st.subheader("📥 Download Optimized Resume")
-        pdf_data = generate_pdf(st.session_state.optimized_resume)
+        pdf_data = generate_templated_pdf(st.session_state.optimized_resume)
         st.download_button(
             label="📄 Download Optimized Resume (PDF)",
             data=pdf_data,
