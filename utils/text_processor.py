@@ -1,3 +1,4 @@
+# utils/text_processor.py (updated - removed old parse method)
 import re
 import logging
 from typing import List, Dict, Any
@@ -6,6 +7,7 @@ class TextProcessor:
     """Utility class for text processing and analysis"""
     
     def __init__(self):
+        """Initializes the text processor with common patterns and keywords."""
         self.logger = logging.getLogger(__name__)
         
         # Common job-related keywords and skills
@@ -27,7 +29,7 @@ class TextProcessor:
             ]
         }
         
-        # Section headers patterns
+        # Regex patterns for identifying section headers
         self.section_patterns = {
             'experience': r'(?i)(work\s+)?experience|employment|professional\s+experience|career\s+history',
             'education': r'(?i)education|academic|qualifications|degrees?',
@@ -41,15 +43,15 @@ class TextProcessor:
     
     def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
         """
-        Split text into overlapping chunks for RAG processing
+        Split text into overlapping chunks for RAG processing.
         
         Args:
-            text (str): Input text
-            chunk_size (int): Maximum size of each chunk
-            overlap (int): Overlap between chunks
+            text (str): Input text.
+            chunk_size (int): Maximum size of each chunk.
+            overlap (int): Overlap between chunks.
             
         Returns:
-            List[str]: List of text chunks
+            List[str]: List of text chunks.
         """
         if not text or len(text) <= chunk_size:
             return [text] if text else []
@@ -60,14 +62,14 @@ class TextProcessor:
         while start < len(text):
             end = start + chunk_size
             
-            # Try to end at a sentence boundary
+            # Try to end at a sentence boundary for cleaner chunks
             if end < len(text):
-                # Look for sentence endings within the last 100 characters
+                # Look for sentence endings within the last part of the chunk
                 sentence_end = text.rfind('.', start + chunk_size - 100, end)
                 if sentence_end > start:
                     end = sentence_end + 1
                 else:
-                    # Look for word boundaries
+                    # If no sentence end, look for word boundaries
                     word_end = text.rfind(' ', start + chunk_size - 50, end)
                     if word_end > start:
                         end = word_end
@@ -85,78 +87,73 @@ class TextProcessor:
     
     def extract_keywords(self, text: str) -> List[str]:
         """
-        Extract important keywords from text
+        Extract important keywords from text.
         
         Args:
-            text (str): Input text
+            text (str): Input text.
             
         Returns:
-            List[str]: List of keywords
+            List[str]: List of keywords.
         """
         # Clean and normalize text
         text = text.lower()
         text = re.sub(r'[^\w\s]', ' ', text)
         
-        # Extract potential keywords (2-4 word phrases and single words)
         words = text.split()
         keywords = set()
         
-        # Single words (filter common words)
+        # Define common English stop words
         stop_words = {
             'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
             'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after',
             'above', 'below', 'under', 'between', 'is', 'are', 'was', 'were', 'be', 'been',
             'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should',
-            'could', 'can', 'may', 'might', 'must', 'shall', 'this', 'that', 'these', 'those'
+            'could', 'can', 'may', 'might', 'must', 'shall', 'this', 'that', 'these', 'those',
+            'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them'
         }
         
+        # Extract single words (if not stop words)
         for word in words:
             if len(word) > 2 and word not in stop_words:
                 keywords.add(word)
         
-        # Multi-word phrases (2-3 words)
+        # Extract multi-word phrases (bigrams and trigrams)
         for i in range(len(words) - 1):
-            phrase = ' '.join(words[i:i+2])
-            if len(phrase) > 5:
-                keywords.add(phrase)
+            phrase_2 = ' '.join(words[i:i+2])
+            if len(phrase_2) > 5:
+                keywords.add(phrase_2)
             
             if i < len(words) - 2:
-                phrase = ' '.join(words[i:i+3])
-                if len(phrase) > 8:
-                    keywords.add(phrase)
+                phrase_3 = ' '.join(words[i:i+3])
+                if len(phrase_3) > 8:
+                    keywords.add(phrase_3)
         
-        # Filter and rank keywords
-        filtered_keywords = []
-        for keyword in keywords:
-            if len(keyword) > 2 and not keyword.isdigit():
-                filtered_keywords.append(keyword)
+        # Filter out purely numeric keywords
+        filtered_keywords = [kw for kw in keywords if not kw.isdigit()]
         
-        return filtered_keywords[:50]  # Return top 50 keywords
-    
+        return filtered_keywords[:50]  # Return top 50 keywords for brevity
+
     def extract_skills(self, text: str) -> List[str]:
         """
-        Extract technical and soft skills from text
+        Extract technical and soft skills from text.
         
         Args:
-            text (str): Input text
+            text (str): Input text.
             
         Returns:
-            List[str]: List of identified skills
+            List[str]: List of identified skills.
         """
         text_lower = text.lower()
-        found_skills = []
+        found_skills = set()
         
-        # Check for technical skills
-        for skill in self.common_skills['technical']:
-            if skill in text_lower:
-                found_skills.append(skill)
+        # Check for pre-defined technical and soft skills
+        all_predefined_skills = self.common_skills['technical'] + self.common_skills['soft_skills']
+        for skill in all_predefined_skills:
+            # Use word boundaries to avoid matching substrings (e.g., 'art' in 'artificial')
+            if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
+                found_skills.add(skill)
         
-        # Check for soft skills
-        for skill in self.common_skills['soft_skills']:
-            if skill in text_lower:
-                found_skills.append(skill)
-        
-        # Extract programming languages and technologies
+        # Extract other potential technologies with regex
         tech_patterns = [
             r'\b(?:python|java|javascript|typescript|c\+\+|c#|php|ruby|go|rust|swift|kotlin)\b',
             r'\b(?:react|angular|vue|node\.?js|express|django|flask|spring|laravel)\b',
@@ -166,219 +163,54 @@ class TextProcessor:
         
         for pattern in tech_patterns:
             matches = re.findall(pattern, text_lower)
-            found_skills.extend(matches)
+            found_skills.update(matches)
         
-        return list(set(found_skills))
+        return list(found_skills)
     
     def extract_resume_sections(self, resume_text: str) -> Dict[str, str]:
         """
-        Extract different sections from resume text
+        Extract different sections from resume text using regex patterns.
         
         Args:
-            resume_text (str): Resume content
+            resume_text (str): Resume content.
             
         Returns:
-            Dict[str, str]: Dictionary mapping section names to content
+            Dict[str, str]: Dictionary mapping section names to their content.
         """
         sections = {}
         lines = resume_text.split('\n')
-        current_section = 'header'
+        current_section = 'header' # Default section for content at the top
         current_content = []
         
         for line in lines:
-            line = line.strip()
-            if not line:
+            stripped_line = line.strip()
+            if not stripped_line:
                 continue
             
-            # Check if line is a section header
+            # Check if the line matches a section header pattern
             section_found = None
-            for section_name, pattern in self.section_patterns.items():
-                if re.match(pattern, line):
-                    section_found = section_name
-                    break
+            # A line is considered a header if it's short and matches a pattern
+            if len(stripped_line) < 50: 
+                for section_name, pattern in self.section_patterns.items():
+                    if re.match(pattern, stripped_line):
+                        section_found = section_name
+                        break
             
             if section_found:
-                # Save previous section
+                # Save the content of the previous section
                 if current_content:
-                    sections[current_section] = '\n'.join(current_content)
+                    sections[current_section] = '\n'.join(current_content).strip()
                 
-                # Start new section
+                # Start a new section
                 current_section = section_found
-                current_content = []
+                # Include the header line in the section content if it's descriptive
+                header_content = stripped_line.replace(re.match(pattern, stripped_line).group(0), "").strip()
+                current_content = [header_content] if header_content else []
             else:
                 current_content.append(line)
         
-        # Save last section
+        # Save the last section's content
         if current_content:
-            sections[current_section] = '\n'.join(current_content)
+            sections[current_section] = '\n'.join(current_content).strip()
         
         return sections
-    
-    def extract_job_sections(self, job_description: str) -> Dict[str, str]:
-        """
-        Extract different sections from job description
-        
-        Args:
-            job_description (str): Job description text
-            
-        Returns:
-            Dict[str, str]: Dictionary mapping section names to content
-        """
-        sections = {}
-        
-        # Common job description section patterns
-        job_patterns = {
-            'requirements': r'(?i)requirements?|qualifications?|what\s+we\s+need|must\s+have',
-            'responsibilities': r'(?i)responsibilities?|duties|what\s+you\s+will\s+do|role|tasks?',
-            'skills': r'(?i)skills?|competencies|technical\s+skills|abilities',
-            'experience': r'(?i)experience|background|years?\s+of\s+experience',
-            'education': r'(?i)education|degree|academic|university|college',
-            'benefits': r'(?i)benefits?|perks?|what\s+we\s+offer|compensation',
-            'company': r'(?i)about\s+(us|the\s+company)|company\s+overview|who\s+we\s+are'
-        }
-        
-        lines = job_description.split('\n')
-        current_section = 'overview'
-        current_content = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Check if line is a section header
-            section_found = None
-            for section_name, pattern in job_patterns.items():
-                if re.match(pattern, line) or (len(line) < 50 and re.search(pattern, line)):
-                    section_found = section_name
-                    break
-            
-            if section_found:
-                # Save previous section
-                if current_content:
-                    sections[current_section] = '\n'.join(current_content)
-                
-                # Start new section
-                current_section = section_found
-                current_content = []
-            else:
-                current_content.append(line)
-        
-        # Save last section
-        if current_content:
-            sections[current_section] = '\n'.join(current_content)
-        
-        return sections
-    
-    def calculate_text_similarity(self, text1: str, text2: str) -> float:
-        """
-        Calculate similarity between two texts using simple keyword overlap
-        
-        Args:
-            text1 (str): First text
-            text2 (str): Second text
-            
-        Returns:
-            float: Similarity score between 0 and 1
-        """
-        keywords1 = set(self.extract_keywords(text1))
-        keywords2 = set(self.extract_keywords(text2))
-        
-        if not keywords1 or not keywords2:
-            return 0.0
-        
-        intersection = keywords1 & keywords2
-        union = keywords1 | keywords2
-        
-        return len(intersection) / len(union) if union else 0.0
-    
-    def highlight_missing_keywords(self, text: str, keywords: List[str]) -> str:
-        """
-        Highlight missing keywords in text (for display purposes)
-        
-        Args:
-            text (str): Original text
-            keywords (List[str]): Keywords to highlight
-            
-        Returns:
-            str: Text with highlighted keywords
-        """
-        highlighted_text = text
-        
-        for keyword in keywords:
-            # Case-insensitive replacement with highlighting
-            pattern = re.compile(re.escape(keyword), re.IGNORECASE)
-            highlighted_text = pattern.sub(f"**{keyword}**", highlighted_text)
-        
-        return highlighted_text
-    
-    def extract_quantifiable_achievements(self, text: str) -> List[str]:
-        """
-        Extract quantifiable achievements from text
-        
-        Args:
-            text (str): Input text
-            
-        Returns:
-            List[str]: List of achievements with numbers/percentages
-        """
-        # Patterns for quantifiable achievements
-        patterns = [
-            r'[^\.\n]*\d+%[^\.\n]*',  # Percentages
-            r'[^\.\n]*\$[\d,]+[^\.\n]*',  # Dollar amounts
-            r'[^\.\n]*\d+[\s\-]*(?:years?|months?|weeks?|days?)[^\.\n]*',  # Time periods
-            r'[^\.\n]*\d+[\s\-]*(?:people|employees|team members?|users?|customers?)[^\.\n]*',  # People
-            r'[^\.\n]*(?:increased|improved|reduced|decreased|saved|generated)[^\.\n]*\d+[^\.\n]*',  # Impact verbs with numbers
-        ]
-        
-        achievements = []
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            achievements.extend([match.strip() for match in matches])
-        
-        return list(set(achievements))
-    
-    def parse_resume_to_structured_dict(self, resume_text: str) -> Dict[str, Any]:
-            """
-            Parses resume text into a structured dictionary.
-            This is a simplified example; a more robust implementation might use more advanced regex.
-            """
-            sections = self.extract_resume_sections(resume_text)
-            structured_resume = {}
-
-            # Parse Summary
-            if 'summary' in sections:
-                structured_resume['summary'] = sections['summary']
-            
-            # Parse Contact Info (usually in the header)
-            if 'header' in sections:
-                header_text = sections['header']
-                structured_resume['contact_info'] = {
-                    'name': header_text.split('\n')[0],
-                    'details': '\n'.join(header_text.split('\n')[1:])
-                }
-
-            # Parse Experience
-            if 'experience' in sections:
-                structured_resume['experience'] = []
-                # This regex is an example; it might need refinement for different resume formats
-                jobs = re.split(r'\n(?=[A-Z\s&]+\s*\|)', sections['experience']) # Split by "COMPANY | Location"
-                for job in jobs:
-                    if not job.strip(): continue
-                    lines = job.strip().split('\n')
-                    job_title_line = lines[1] if len(lines) > 1 else ''
-                    date_line = re.search(r'(\w+\s\d{4}\s*–\s*\w+)', job_title_line)
-                    
-                    job_entry = {
-                        "company_location": lines[0].strip(),
-                        "title": job_title_line.split(' | ')[0].replace('**', '').strip(),
-                        "dates": date_line.group(0) if date_line else "",
-                        "bullets": [l.replace('*','').strip() for l in lines[2:] if l.strip().startswith('*')]
-                    }
-                    structured_resume['experience'].append(job_entry)
-
-            # Add stubs for other sections to be parsed
-            structured_resume['education'] = sections.get('education', '')
-            structured_resume['skills'] = sections.get('skills', '')
-
-            return structured_resume

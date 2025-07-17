@@ -1,3 +1,4 @@
+# app.py (updated)
 import streamlit as st
 import os
 import tempfile
@@ -57,35 +58,146 @@ def initialize_session_state():
 
 def populate_html_template(resume_data: dict) -> str:
     """
-    Populates the HTML template with optimized resume data.
-    This function dynamically builds the HTML for sections like experience.
+    Populates the standardized HTML template with optimized resume data.
+    Sections are included only if they have content.
     """
     # Helper to build experience HTML
     def build_experience_html(experiences):
         html = ""
-        for job in experiences:
-            bullets_html = "".join([f"<li>{bullet}</li>" for bullet in job.get('bullets', [])])
+        for exp in experiences:
+            tasks_html = ""
+            for task in exp.get('tasks', []):
+                bullets_html = "".join([f"<li>{bullet}</li>" for bullet in task.get('bullets', [])])
+                tools = task.get('tools', '')
+                if bullets_html:
+                    tasks_html += f"<ul>{bullets_html}</ul>"
+                if tools:
+                    tasks_html += f'<div class="tools">{tools}</div>'
+            additional = exp.get('additional', '')
+            if additional:
+                tasks_html += f"<p>{additional}</p>"
             html += f"""
             <div class="experience-item">
-                <div class="institution">{job.get('company_location', '')}</div>
-                <div class="location">{job.get('location', ' ')}</div>
+                <div class="institution">{exp.get('company', '')}</div>
+                <div class="location">{exp.get('location', '')}</div>
                 <div class="clear"></div>
-                <div class="position">{job.get('title', '')}</div>
-                <div class="date">{job.get('dates', '')}</div>
+                <div class="position">{exp.get('position', '')}</div>
+                <div class="date">{exp.get('dates', '')}</div>
+                <div class="clear"></div>
+                {tasks_html}
+            </div>
+            """
+        return html if html else ""
+
+    # Helper to build achievements HTML
+    def build_achievements_html(achievements):
+        html = ""
+        for ach in achievements:
+            html += f"""
+            <div class="experience-item">
+                <div class="position">{ach.get('title', '')}</div>
+                <div class="clear"></div>
+                <p>{ach.get('description', '')}</p>
+            </div>
+            """
+        return html if html else ""
+
+    # Helper to build projects HTML
+    def build_projects_html(projects):
+        html = ""
+        for proj in projects:
+            bullets_html = "".join([f"<li>{bullet}</li>" for bullet in proj.get('bullets', [])])
+            tools = proj.get('tools', '')
+            html += f"""
+            <div class="project-item">
+                <div class="position">{proj.get('name', '')}</div>
+                <div class="clear"></div>
+                <ul>{bullets_html}</ul>
+                <div class="tools">{tools}</div>
+            </div>
+            """
+        return html if html else ""
+
+    # Helper to build education HTML
+    def build_education_html(educations):
+        html = ""
+        class_name = "education-item1"  # Alternate classes if multiple, but simplify to one
+        for edu in educations:
+            html += f"""
+            <div class="{class_name}">
+                <div class="institution">{edu.get('institution', '')}</div>
+                <div class="date">{edu.get('dates', '')}</div>
+                <div class="clear"></div>
+                <p>{edu.get('details', '')}</p>
+            </div>
+            """
+            class_name = "education-item2" if class_name == "education-item1" else "education-item1"
+        return html if html else ""
+
+    # Helper to build volunteering HTML
+    def build_volunteering_html(volunteerings):
+        html = ""
+        for vol in volunteerings:
+            bullets_html = "".join([f"<li>{bullet}</li>" for bullet in vol.get('bullets', [])])
+            html += f"""
+            <div class="experience-item">
+                <div class="institution">{vol.get('organization', '')}</div>
+                <div class="clear"></div>
+                <div class="position">{vol.get('position', '')}</div>
+                <div class="date">{vol.get('dates', '')}</div>
                 <div class="clear"></div>
                 <ul>{bullets_html}</ul>
             </div>
             """
-        return html
+        return html if html else ""
 
-    # The main HTML structure from your example
-    # Note: We are injecting data using f-string formatting.
+    # Helper to build certifications HTML
+    def build_certifications_html(certifications):
+        html = "".join([f"<li>{cert}</li>" for cert in certifications])
+        return f"<ul>{html}</ul>" if html else ""
+
+    # Helper to build skills HTML
+    def build_skills_html(skills):
+        technical = skills.get('technical', '')
+        interests = skills.get('interests', '')
+        html = ""
+        if technical:
+            html += f"<ul><strong>Technical:</strong> {technical}<br></ul>"
+        if interests:
+            html += f"<ul><strong>Interests:</strong> {interests}</ul>"
+        return f"<p>{html}</p>" if html else ""
+
+    # Build contact details
+    contact = resume_data.get('contact_info', {})
+    name = contact.get('name', '')
+    details = []
+    if contact.get('email'): details.append(contact['email'])
+    if contact.get('phone'): details.append(contact['phone'])
+    email_phone = ' • '.join(details)
+    other_links = []
+    if contact.get('linkedin'): other_links.append(f'<a href="{contact["linkedin"]}">{contact["linkedin"]}</a>')
+    if contact.get('other_links'): other_links.append(contact['other_links'])
+    links_line = ' • '.join(other_links) if other_links else ''
+    contact_html = f'<p class="contact-line">{email_phone}</p><p class="contact-line">• {links_line}</p>' if email_phone or links_line else ''
+
+    # Generate section HTML only if data exists
+    summary_html = f'<div class="section-title">SUMMARY</div><p>{resume_data.get("summary", "")}</p>' if resume_data.get('summary') else ''
+    experience_html = f'<div class="section-title">EXPERIENCE</div>{build_experience_html(resume_data.get("experience", []))}' if resume_data.get('experience') else ''
+    achievements_html = f'<div class="section-title">ACHIEVEMENT</div>{build_achievements_html(resume_data.get("achievements", []))}' if resume_data.get('achievements') else ''
+    projects_html = f'<div class="section-title">NOTABLE PROJECTS</div>{build_projects_html(resume_data.get("projects", []))}' if resume_data.get('projects') else ''
+    education_html = f'<div class="section-title">EDUCATION</div>{build_education_html(resume_data.get("education", []))}' if resume_data.get('education') else ''
+    volunteering_html = f'<div class="section-title">VOLUNTEERING</div>{build_volunteering_html(resume_data.get("volunteering", []))}' if resume_data.get('volunteering') else ''
+    certifications_html = f'<div class="section-title">RELATED INTERNATIONAL CERTIFICATION</div>{build_certifications_html(resume_data.get("certifications", []))}' if resume_data.get('certifications') else ''
+    skills_html = f'<div class="section-title">SKILLS & INTERESTS</div>{build_skills_html(resume_data.get("skills", {}))}' if resume_data.get('skills') else ''
+
+    # Full HTML template
     html_template = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Resume</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{name} - CV</title>
         <style>
             @font-face {{
                 font-family: 'Arial';
@@ -93,33 +205,42 @@ def populate_html_template(resume_data: dict) -> str:
             }}
             body {{ font-family: 'Arial', sans-serif; line-height: 1.4; margin: 0 auto; padding: 18px; max-width: 1100px; font-size: 11pt; }}
             h1 {{ text-align: center; margin-bottom: 5px; border-bottom: 2px solid black; padding-bottom: 7px; font-size: 20pt; }}
-            .contact-info {{ text-align: center; margin-bottom: 15px; font-sze: 10pt; }}
+            .contact-info {{ text-align: center; margin-bottom: 15px; font-size: 10pt; }}
             .section-title {{ border-bottom: 1px solid black; text-transform: uppercase; font-weight: bold; margin-top: 15px; margin-bottom: 7px; padding-bottom: 3px; font-size: 11pt; }}
-            .experience-item {{ margin-bottom: 10px; margin-top: 10px; }}
+            .experience-item, .project-item {{ margin-bottom: 10px; margin-top: 10px; }}
+            .education-item1 {{ margin-bottom: 20px; margin-top: 20px; }}
+            .education-item2 {{ margin-bottom: 20px; margin-top: 20px; padding-top: 20px; page-break-inside: avoid; }}
             .institution {{ font-weight: bold; display: inline-block; }}
-            .location {{ float: right; }}
+            .location {{ float: right; font-style: italic; }}
             .position {{ font-weight: bold; }}
             .date {{ float: right; }}
             ul {{ margin-top: 4px; margin-bottom: 6px; padding-left: 22px; }}
             li {{ margin-bottom: 3px; }}
+            ul ul {{ margin-top: 2px; margin-bottom: 2px; }}
             .clear {{ clear: both; }}
+            .profile-picture {{ text-align: center; margin-bottom: 12px; }}
+            .profile-picture img {{ width: 150px; height: auto; border-radius: 5px; }}
+            .skills-container {{ display: flex; justify-content: space-between; }}
+            .skills-column {{ width: 48%; }}
             p {{ margin-top: 4px; margin-bottom: 4px; }}
             .contact-line {{ margin: 1px 0; line-height: 1.3; }}
+            .tools {{ font-style: italic; font-size: 10pt; margin-top: 1px; margin-bottom: 4px; margin-left: 22px; }}
         </style>
     </head>
     <body>
-        <h1>{resume_data.get('contact_info', {}).get('name', '')}</h1>
+        <h1>{name}</h1>
         <div class="contact-info">
-            <p class="contact-line">{resume_data.get('contact_info', {}).get('details', '').replace('•', '•<br/>')}</p>
+            {contact_html}
         </div>
-
-        <div class="section-title">SUMMARY</div>
-        <p>{resume_data.get('summary', '')}</p>
-
-        <div class="section-title">EXPERIENCE</div>
-        {build_experience_html(resume_data.get('experience', []))}
-
-        </body>
+        {summary_html}
+        {experience_html}
+        {achievements_html}
+        {projects_html}
+        {education_html}
+        {volunteering_html}
+        {certifications_html}
+        {skills_html}
+    </body>
     </html>
     """
     return html_template
@@ -464,14 +585,13 @@ def handle_analysis():
             with st.spinner("Generating optimized resume... Please wait, this may take up to 1 minute."):
                 try:
                     analyzer = ResumeAnalyzer()
-                    # 1. Parse the original resume text into a structured dictionary
-                    resume_structure = analyzer.text_processor.parse_resume_to_structured_dict(st.session_state.resume_text)
+                    # 1. Parse the original resume text into a structured dictionary using AI
+                    resume_structure = analyzer.parse_resume_to_structure(st.session_state.resume_text)
                     
                     # 2. Send the structured data to the AI for optimization
                     optimized_structure = analyzer.generate_optimized_resume(
                         resume_structure,
-                        st.session_state.job_description,
-                        st.session_state.analysis_results  # Use the stored analysis results
+                        st.session_state.job_description
                     )
                     
                     # 3. Store the structured result, not plain text
