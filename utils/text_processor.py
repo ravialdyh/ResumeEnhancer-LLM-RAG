@@ -1,7 +1,6 @@
 import re
 import logging
-from typing import List, Dict, Set
-from collections import Counter
+from typing import List, Dict, Any
 
 class TextProcessor:
     """Utility class for text processing and analysis"""
@@ -443,5 +442,6 @@ class TextProcessor:
 
                 **Original Resume Content (in JSON format):**
                 ```json
-                {json.dumps(resume_structure, indent=2)}```
+                {json.dumps(resume_structure, indent=2)}
+                ```
             """
