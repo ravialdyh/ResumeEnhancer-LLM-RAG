@@ -1,10 +1,35 @@
-[server]
-headless = true
-address = "0.0.0.0"
-port = 5000
+# .streamlit/config.toml
 
+# This setting is required to serve local font files.
+[server]
+enableStaticServing = true
+
+# This theme is inspired by the Anthropic light theme example.
+# It defines the core colors, fonts, and styles for all Streamlit widgets.
+# All options here are compatible with older Streamlit versions.
 [theme]
-primaryColor = "#0073B1"
-backgroundColor = "#F3F2EF"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#000000"
+# Colors
+primaryColor = "#cb785c"
+backgroundColor = "#fdfdf8"
+secondaryBackgroundColor = "#ecebe3"
+textColor = "#3d3a2a"
+# linkColor is not a valid option in older versions, it will inherit textColor.
+
+# Borders and Radii
+# borderColor is not a valid option in older versions, but showWidgetBorder works.
+showWidgetBorder = true 
+# baseRadius is not a valid option, but we control this with CSS.
+buttonRadius = "full"
+showSidebarBorder = true
+
+# Typography
+font = "Space Grotesk" # Main font for the app
+codeFont = "Space Mono" # Font for code blocks
+# codeFontSize is not a valid option, controlled by CSS.
+# codeBackgroundColor is not a valid option, controlled by CSS.
+
+# Sidebar Specific Theme
+[theme.sidebar]
+backgroundColor = "#f0f0ec"
+secondaryBackgroundColor = "#e4e4e0"
+# Other sidebar options are not supported and are handled by general theme/CSS.
