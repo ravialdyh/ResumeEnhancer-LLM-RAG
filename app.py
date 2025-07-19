@@ -88,6 +88,50 @@ st.markdown(
         border-right: 1px solid var(--border-color);
     }
 
+    /* Make sidebar collapse/expand buttons more prominent and always visible like Anthropic design */
+    section[data-testid="collapsedControl"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 40px !important;
+        height: 40px !important;
+        background-color: var(--secondary-background-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: var(--baseRadius) !important;
+        position: fixed !important;
+        top: 20px !important;
+        left: 10px !important; /* Slightly offset from edge for visibility */
+        z-index: 1000 !important;
+        transition: all 0.2s ease !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    section[data-testid="collapsedControl"]:hover {
+        background-color: #cb785c !important; /* primaryColor */
+        border-color: #cb785c !important;
+        color: white !important;
+    }
+    section[data-testid="collapsedControl"] button {
+        padding: 0 !important;
+        min-width: unset !important;
+        height: unset !important;
+        background: transparent !important;
+    }
+    section[data-testid="collapsedControl"] button:hover {
+        background: transparent !important;
+    }
+    /* Style the collapse button when expanded for consistency */
+    [data-testid="stSidebarCollapseButton"] {
+        background-color: var(--secondary-background-color) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: var(--baseRadius) !important;
+        transition: all 0.2s ease !important;
+    }
+    [data-testid="stSidebarCollapseButton"]:hover {
+        background-color: #cb785c !important; /* primaryColor */
+        color: white !important;
+    }
+
     /* --- Sidebar Progress Indicator (with better contrast) --- */
     .progress-pill {
         background-color: #ecebe3;
