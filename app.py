@@ -1,4 +1,4 @@
-# app.py (enhanced with beautiful UI/UX and Anthropic-inspired theme integration via config.toml)
+# app.py (enhanced with beautiful UI/UX and Anthropic-inspired theme integration)
 import streamlit as st
 import os
 import tempfile
@@ -18,52 +18,105 @@ from database.service import DatabaseService
 from io import BytesIO
 from xhtml2pdf import pisa
 
-# --- Minimal Custom CSS for Shadows/Hover (Theme handles most) ---
-st.markdown(
-    """
-    <style>
-    /* Card-like containers with shadows and hover */
-    [data-testid="column"] > div > div > div > div > [data-testid="stVerticalBlockBorderWrapper"] {
-        border: 1px solid var(--border-color);
-        border-radius: var(--baseRadius);
-        background: var(--secondary-background-color);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-        transition: box-shadow 0.3s ease-in-out;
-        padding: 1rem;
-    }
-    [data-testid="column"] > div > div > div > div > [data-testid="stVerticalBlockBorderWrapper"]:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    /* Sidebar enhancements: Rounded progress items */
-    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] > div {
-        border-radius: var(--baseRadius);
-        padding: 0.5rem;
-        margin-bottom: 0.5rem;
-        background: var(--secondary-background-color);
-    }
-
-    /* Ensure fonts apply globally */
-    html, body, [class*="st-"], [class*="css-"] {
-        font-family: var(--font-main);
-    }
-
-    /* Button hover lift */
-    .stButton > button:hover {
-        transform: translateY(-2px);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- Page Configuration ---
+# --- Page Configuration (MUST be the first Streamlit command) ---
 st.set_page_config(
     page_title="Resume Optimization Tool",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- Custom CSS for Anthropic-inspired theme ---
+# This block injects CSS to refine the theme, adding shadows, transitions,
+# and other details that config.toml can't control.
+st.markdown(
+    r"""
+    <style>
+    /* --- FONT IMPORT (FROM GOOGLE FONTS API) --- */
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+    /* --- Base Font Application --- */
+    /* Use theme variables provided by Streamlit for consistency */
+    html, body, [class*="st-"], [class*="css-"] {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+    code, .stCodeBlock, .stJson, pre {
+        font-family: 'Space Mono', monospace;
+    }
+
+    /* --- Card-like Containers --- */
+    /* This targets containers created with st.container(border=True) */
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--baseRadius);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
+        transition: box-shadow 0.3s ease-in-out;
+        padding: 1.5rem; /* Add more padding for a spacious feel */
+    }
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    /* --- Sidebar Styling --- */
+    [data-testid="stSidebar"] {
+        border-right: 1px solid var(--border-color);
+    }
+
+    /* --- Sidebar Progress Indicator --- */
+    /* A custom class for our progress pills for cleaner code */
+    .progress-pill {
+        background-color: #ecebe3; /* Default background */
+        color: #3d3a2a;
+        border-radius: 9999px;
+        padding: 0.5rem 1rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        transition: background-color 0.3s, color 0.3s;
+        border: 1px solid #d3d2ca;
+    }
+    .progress-pill.completed {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    .progress-pill .emoji {
+        margin-right: 0.75rem;
+        font-size: 1.1rem;
+    }
+
+    /* --- Button Styling --- */
+    .stButton > button {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    }
+    .stButton > button:active {
+        transform: translateY(0px);
+    }
+
+    /* --- File Uploader --- */
+    [data-testid="stFileUploader"] section {
+        border: 2px dashed var(--border-color);
+        background-color: var(--background-color);
+    }
+
+    /* --- Text Area --- */
+    .stTextArea textarea {
+        border: 1px solid var(--border-color);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -85,8 +138,7 @@ def initialize_session_state():
             if key == 'generation_successful': st.session_state[key] = False
 
 def populate_html_template(resume_data: dict) -> str:
-    """Populates the HTML template for PDF generation."""
-    # Helper functions to build HTML sections
+    """Populates the HTML template for PDF generation. (No changes to this function)"""
     def build_experience_html(experiences):
         html = ""
         for exp in experiences:
@@ -142,13 +194,11 @@ def populate_html_template(resume_data: dict) -> str:
             </div>"""
         return html if html else ""
 
-    # Main data extraction
     contact = resume_data.get('contact_info', {})
     name = contact.get('name', '').upper()
     details_list = [contact.get('email'), contact.get('phone'), contact.get('linkedin')]
     contact_line = ' &nbsp;&bull;&nbsp; '.join(filter(None, details_list))
 
-    # Generate section HTML only if data exists
     summary_html = f'<h2>Summary</h2><p>{resume_data.get("summary", "")}</p>' if resume_data.get('summary') else ''
     experience_html = f'<h2>Experience</h2>{build_experience_html(resume_data.get("experience", []))}' if resume_data.get('experience') else ''
     projects_html = f'<h2>Projects</h2>{build_projects_html(resume_data.get("projects", []))}' if resume_data.get('projects') else ''
@@ -157,7 +207,10 @@ def populate_html_template(resume_data: dict) -> str:
     skills_html = f'<h2>Skills</h2><p><strong>Technical:</strong> {skills.get("technical", "")}<br><strong>Interests:</strong> {skills.get("interests", "")}</p>' if skills else ''
     certifications_html = f'<h2>Certifications</h2>{build_simple_list_html(resume_data.get("certifications", []))}' if resume_data.get("certifications") else ''
 
-    # The src path now correctly points to 'static/fonts/...' which is where the files should be.
+    # NOTE: The PDF generation uses its own font loading. This part is separate
+    # from the Streamlit UI and should still work with your local files.
+    # If the PDF fonts are also broken, you would need to fix the font files
+    # in static/fonts/ for the PDF generator to work.
     html_template = f"""
     <!DOCTYPE html>
     <html>
@@ -197,20 +250,21 @@ def populate_html_template(resume_data: dict) -> str:
     return html_template
 
 def generate_templated_pdf(resume_data: dict) -> bytes:
-    """Generate a PDF from the structured resume data using an HTML template."""
+    """Generate a PDF from the structured resume data using an HTML template. (No changes to this function)"""
     html_content = populate_html_template(resume_data)
     result = BytesIO()
-    # The link_callback helps xhtml2pdf find local files like fonts from the root directory.
     pdf = pisa.CreatePDF(BytesIO(html_content.encode("UTF-8")), dest=result, link_callback=lambda uri, rel: os.path.join(os.getcwd(), uri.replace("/", os.sep)))
     if not pdf.err:
         return result.getvalue()
     else:
-        st.toast(f"Error converting HTML to PDF: {pdf.err}. Ensure font files are in the 'static/fonts/' directory.", icon="❌")
+        st.toast(f"Error converting HTML to PDF: {pdf.err}. Ensure font files are in 'static/fonts/'.", icon="❌")
         return None
 
 def main():
+    """Main application flow."""
     initialize_session_state()
 
+    # --- Sidebar ---
     with st.sidebar:
         st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Configuration</h3>', unsafe_allow_html=True)
         
@@ -224,7 +278,7 @@ def main():
                     next(genai.list_models())
                     st.session_state.api_key_validated = True
                     st.rerun()
-                except Exception as e:
+                except Exception:
                     st.toast("🚫 Invalid Gemini API key.", icon="❌")
                     st.session_state.api_key_validated = False
         
@@ -238,13 +292,18 @@ def main():
             ("Resume uploaded", bool(st.session_state.resume_text)),
             ("Job description added", bool(st.session_state.job_description)),
             ("Analysis completed", bool(st.session_state.analysis_results)),
-            ("Resume generated", bool(st.session_state.optimized_resume))
+            ("Resume generated", bool(st.session_state.generation_successful))
         ]
+        
         for item, completed in progress_items:
-            emoji = "✅" if completed else "🔲"
-            bg_color = "#cb785c" if completed else "#ecebe3"  # Use theme vars indirectly
-            text_color = "white" if completed else "#3d3a2a"
-            st.markdown(f'<div style="background: {bg_color}; color: {text_color}; border-radius: 999px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;"><span style="margin-right: 0.5rem;">{emoji}</span>{item}</div>', unsafe_allow_html=True)
+            emoji = "✅" if completed else "⏳"
+            status_class = "completed" if completed else ""
+            st.markdown(
+                f'<div class="progress-pill {status_class}">'
+                f'<span class="emoji">{emoji}</span>{item}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
         
         st.divider()
 
@@ -253,20 +312,21 @@ def main():
                 stats = st.session_state.db_service.get_session_stats(st.session_state.session_id)
                 if stats and stats.get('total_analyses', 0) > 0:
                     st.markdown('<h4><span style="margin-right: 0.5rem;">📈</span>Session Stats</h4>', unsafe_allow_html=True)
-                    st.metric("Analyses Done", stats.get('total_analyses', 0), border=True)
+                    st.metric("Analyses Done", stats.get('total_analyses', 0))
                     if stats.get('average_match_score', 0) > 0:
-                        st.metric("Avg Match Score", f"{stats['average_match_score']:.1f}%", border=True)
+                        st.metric("Avg Match Score", f"{stats['average_match_score']:.1f}%")
             except Exception:
                 pass
         
         st.divider()
-        if st.button("🔄 Start New Session", type="primary"):
+        if st.button("🔄 Start New Session", type="secondary", use_container_width=True):
             keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
-                if key not in ['db_service', 'api_key_validated', 'session_id']:
+                if key not in ['db_service', 'api_key_validated']:
                     del st.session_state[key]
             st.rerun()
 
+    # --- Main Content ---
     st.markdown('<h1><span style="margin-right: 0.75rem;">🚀</span>Resume Optimization Tool</h1>', unsafe_allow_html=True)
     st.markdown("<h4>Enhance your resume with AI-powered analysis and targeted improvements.</h4>", unsafe_allow_html=True)
     st.divider()
@@ -279,6 +339,7 @@ def main():
 def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis."""
     st.markdown("<h5>Step 1: Provide Your Resume & the Job Description</h5>", unsafe_allow_html=True)
+    st.write("")
     
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
@@ -290,11 +351,12 @@ def handle_upload_and_input():
         _render_jd_input()
 
     st.write("")
+    st.write("")
 
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
         is_ready = bool(st.session_state.resume_text and st.session_state.job_description and st.session_state.get('api_key_validated'))
-        if st.button("🔍 Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready, help="Start AI analysis and optimization"):
+        if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
             with st.spinner("Analyzing resume... This may take up to a minute."):
                 try:
                     analyzer = ResumeAnalyzer()
@@ -311,16 +373,16 @@ def handle_upload_and_input():
                     st.toast("Analysis complete!", icon="✅")
                     st.rerun()
                 except Exception as e:
-                    st.toast(f"❌ Analysis failed: {e}", icon="❌")
+                    st.error(f"Analysis failed: {e}", icon="❌")
         if not is_ready:
-            st.caption("Please upload a resume, paste a job description, and ensure your API key is valid to proceed.", help="All fields are required for optimization.")
+            st.caption("Please upload a resume, paste a job description, and ensure your API key is valid to proceed.")
 
 def _render_resume_uploader():
     """Renders the resume upload section."""
     uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=['pdf', 'docx'], label_visibility="collapsed")
     if uploaded_file:
         if uploaded_file.name != st.session_state.get('uploaded_filename'):
-            with st.spinner("Parsing document..."):
+            with st.spinner(f"Parsing '{uploaded_file.name}'..."):
                 try:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
@@ -330,21 +392,21 @@ def _render_resume_uploader():
                     st.session_state.resume_text = parser.parse_document(tmp_file_path)
                     st.session_state.uploaded_filename = uploaded_file.name
                     os.unlink(tmp_file_path)
-                    st.toast(f"✅ Parsed '{st.session_state.uploaded_filename}'", icon="✅")
+                    st.toast(f"✅ Parsed '{st.session_state.uploaded_filename}'", icon="📄")
                     st.rerun()
                 except Exception as e:
-                    st.toast(f"Error parsing file: {e}", icon="❌")
+                    st.error(f"Error parsing file: {e}", icon="❌")
     
     if st.session_state.resume_text:
-        with st.expander("Preview Resume Text", expanded=False):
+        st.success(f"✅ Loaded: **{st.session_state.uploaded_filename}**")
+        with st.expander("Preview Resume Text"):
             st.text_area("Resume Content", st.session_state.resume_text, height=200, disabled=True)
 
 def _render_jd_input():
     """Renders the job description input section."""
-    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=300, label_visibility="collapsed")
+    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=300, label_visibility="collapsed", placeholder="Paste the job description you are applying for...")
     if jd_text != st.session_state.job_description:
         st.session_state.job_description = jd_text
-        st.toast("✅ Job description updated", icon="✅")
         st.rerun()
     if st.session_state.job_description:
         st.success("✅ Job description added.")
@@ -356,13 +418,14 @@ def handle_analysis_display():
         return
 
     st.markdown("<h5>Step 2: Review Analysis & Generate Your New Resume</h5>", unsafe_allow_html=True)
+    st.write("")
 
     results = st.session_state.analysis_results
-    cols = st.columns(4, gap="small")
-    cols[0].metric("Match Score", f"{results.get('match_score', 0)}%", border=True)
-    cols[1].metric("Missing Keywords", results.get('missing_keywords_count', 0), border=True)
-    cols[2].metric("Improvements", len(results.get('improvements', [])), border=True)
-    cols[3].metric("Overall Rating", results.get('overall_rating', 'N/A'), border=True)
+    cols = st.columns(4)
+    cols[0].metric("Match Score", f"{results.get('match_score', 0)}%")
+    cols[1].metric("Missing Keywords", results.get('missing_keywords_count', 0))
+    cols[2].metric("Improvements", len(results.get('improvements', [])))
+    cols[3].metric("Overall Rating", results.get('overall_rating', 'N/A'))
     
     st.divider()
 
@@ -371,7 +434,7 @@ def handle_analysis_display():
         st.markdown('<h5><span style="margin-right: 0.5rem;">✅</span>Strengths</h5>', unsafe_allow_html=True)
         for strength in results.get('strengths', ["No specific strengths identified."]):
             st.markdown(f"- {strength}")
-        st.markdown('<h5><span style="margin-right: 0.5rem;">❌</span>Missing Keywords</h5>', unsafe_allow_html=True)
+        st.markdown('<br><h5><span style="margin-right: 0.5rem;">🔑</span>Missing Keywords</h5>', unsafe_allow_html=True)
         for keyword in results.get('missing_keywords', ["No missing keywords identified."]):
             st.markdown(f"- `{keyword}`")
 
@@ -381,8 +444,8 @@ def handle_analysis_display():
             st.info("No specific improvements were suggested. Your resume looks well-aligned!")
         else:
             for imp in results.get('improvements', []):
-                priority_color_map = {"High": "#ff4b4b", "Medium": "#ffc400", "Low": "#28a745"}
-                color = priority_color_map.get(imp.get('priority', 'Low'), "#28a745")
+                priority_color_map = {"High": "#ef4444", "Medium": "#fbbf24", "Low": "#059669"}
+                color = priority_color_map.get(imp.get('priority', 'Low'), "#059669")
                 
                 st.markdown(f"""
                 <div style="margin-bottom: 0.5rem;">
@@ -396,7 +459,7 @@ def handle_analysis_display():
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True, help="Craft a tailored resume based on analysis"):
+        if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
             with st.spinner("AI is crafting your new resume... This may take a moment."):
                 try:
                     analyzer = ResumeAnalyzer()
@@ -409,17 +472,16 @@ def handle_analysis_display():
                             st.session_state.current_analysis_id,
                             json.dumps(optimized_structure)
                         )
-                    st.toast("Resume generated successfully!", icon="✨")
-                    st.balloons()
+                    st.toast("Resume generated successfully!", icon="🎉")
                     st.rerun()
                 except Exception as e:
-                    st.toast(f"❌ Failed to generate optimized resume: {e}", icon="❌")
+                    st.error(f"Failed to generate optimized resume: {e}", icon="❌")
 
 def _render_success_page():
     """Displays the final success page with download options."""
     st.balloons()
     st.markdown('<h1><span style="margin-right: 0.75rem;">🎉</span>Your Optimized Resume is Ready!</h1>', unsafe_allow_html=True)
-    st.markdown("Your resume has been tailored to the job description. Download it below.")
+    st.markdown("Your resume has been tailored to the job description. Download it below or start a new session.")
     
     pdf_data = generate_templated_pdf(st.session_state.optimized_resume)
     if pdf_data:
@@ -437,7 +499,7 @@ def _render_success_page():
             use_container_width=True
         )
 
-    with st.expander("View Raw Optimized Data (JSON)", expanded=False):
+    with st.expander("View Raw Optimized Data (JSON)"):
         st.json(st.session_state.optimized_resume)
 
 if __name__ == "__main__":

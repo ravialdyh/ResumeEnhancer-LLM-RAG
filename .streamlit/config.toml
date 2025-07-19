@@ -1,56 +1,42 @@
+# .streamlit/config.toml
+
 [server]
+# This is still needed for the PDF generation to find local font files,
+# but is no longer needed for the main Streamlit UI.
 enableStaticServing = true
 
-[[theme.fontFaces]]
-family = "SpaceGrotesk"
-url = "static/fonts/SpaceGrotesk-VariableFont_wght.ttf"
 
-[[theme.fontFaces]]
-family = "SpaceGrotesk"
-url = "static/fonts/SpaceGrotesk-SemiBold.ttf"
-weight = 600
-
-[[theme.fontFaces]]
-family = "SpaceMono"
-url = "static/fonts/SpaceMono-Regular.ttf"
-style = "normal"
-weight = 400
-
-[[theme.fontFaces]]
-family = "SpaceMono"
-url = "static/fonts/SpaceMono-Bold.ttf"
-style = "normal"
-weight = 700
-
-[[theme.fontFaces]]
-family = "SpaceMono"
-url = "static/fonts/SpaceMono-Italic.ttf"
-style = "italic"
-weight = 400
-
-[[theme.fontFaces]]
-family = "SpaceMono"
-url = "static/fonts/SpaceMono-BoldItalic.ttf"
-style = "italic"
-weight = 700
+# --- ANTHROPIC-INSPIRED THEME ---
+# The [[theme.fontFaces]] section has been removed.
+# The app.py file now imports the fonts directly from Google's API.
+# Streamlit will still use these font family names specified below.
 
 [theme]
+# Colors
 primaryColor = "#cb785c"
 backgroundColor = "#fdfdf8"
-secondaryBackgroundColor = "#ecebe3"
+secondaryBackgroundColor = "#f0f0ec"
 textColor = "#3d3a2a"
 linkColor = "#3d3a2a"
+
+# Borders and Radius
 borderColor = "#d3d2ca"
 showWidgetBorder = true
 baseRadius = "0.75rem"
-buttonRadius = "full"
-font = "SpaceGrotesk"
-headingFontWeights = [700,600,600,600,600,600]
+buttonRadius = "full" # This makes buttons pill-shaped
+
+# Typography
+# We still define the font family names here so Streamlit's theme engine
+# knows what to apply, even though the font files are loaded via CSS.
+font = "Space Grotesk"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
 headingFontSizes = ["2.5rem", "2rem", "1.75rem", "1.5rem", "1.25rem", "1.1rem"]
-codeFont = "SpaceMono"
-codeFontSize = ".75rem"
+codeFont = "Space Mono"
+codeFontSize = "0.85rem"
 codeBackgroundColor = "#ecebe4"
-showSidebarBorder = true
+showSidebarBorder = false
+
+# Charts
 chartCategoricalColors = ["#0ea5e9", "#059669", "#fbbf24", "#ef4444", "#a855f7"]
 
 [theme.sidebar]
