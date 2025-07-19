@@ -5,7 +5,6 @@ import json
 import uuid
 
 import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -87,66 +86,80 @@ st.markdown(
         border-right: 1px solid #d3d2ca;
     }
 
-    /* Make sidebar collapse/expand buttons more prominent and always visible like Anthropic design */
-    section[data-testid="collapsedControl"] {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 40px !important;
-        height: 40px !important;
+    /* --- CORRECTED & FUNCTIONAL: Custom Sidebar Toggle Button --- */
+    /* Common styles for both collapsed and expanded buttons */
+    [data-testid="stSidebarCollapseButton"],
+    section[data-testid="collapsedControl"] button {
         background-color: #ecebe3 !important;
         border: 1px solid #d3d2ca !important;
         border-radius: 0.75rem !important;
+        width: 40px !important;
+        height: 40px !important;
+        transition: all 0.2s ease !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Hover state for both buttons */
+    [data-testid="stSidebarCollapseButton"]:hover,
+    section[data-testid="collapsedControl"] button:hover {
+        background-color: #cb785c !important;
+        border-color: #cb785c !important;
+    }
+
+    /* Position the floating button's container when sidebar is collapsed */
+    section[data-testid="collapsedControl"] {
         position: fixed !important;
         top: 20px !important;
         left: 10px !important;
         z-index: 1000 !important;
-        transition: all 0.2s ease !important;
-        opacity: 1 !important;
-        visibility: visible !important;
+        background-color: transparent !important; /* Container should be transparent */
+        border: none !important; /* Container should have no border */
     }
-    section[data-testid="collapsedControl"]:hover {
-        background-color: #cb785c !important;
-        border-color: #cb785c !important;
-        color: white !important;
+    
+    /* Hide the original content (SVG, <kbd> tag) inside the button */
+    [data-testid="stSidebarCollapseButton"] > *,
+    section[data-testid="collapsedControl"] button > * {
+        display: none !important;
     }
-    section[data-testid="collapsedControl"] button {
-        width: 100% !important;
-        height: 100% !important;
-        padding: 0 !important;
-        min-width: unset !important;
-        min-height: unset !important;
+
+    /* Create the new icon using a pseudo-element */
+    [data-testid="stSidebarCollapseButton"]::before,
+    section[data-testid="collapsedControl"] button::before {
+        font-family: 'Material Symbols Outlined'; /* Use the imported font */
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
+        color: #3d3a2a;
+        transition: color 0.2s ease;
+        pointer-events: none; /* THE FIX: Allows clicks to pass through to the button */
     }
-    section[data-testid="collapsedControl"] button:hover {
-        background: transparent !important;
+
+    /* Change icon color on hover */
+    [data-testid="stSidebarCollapseButton"]:hover::before,
+    section[data-testid="collapsedControl"] button:hover::before {
+        color: white;
     }
-    /* Explicitly style the icon for visibility */
-    section[data-testid="collapsedControl"] button kbd {
-        font-size: 20px !important;
-        color: #3d3a2a !important;
+
+    /* Set the specific icon for each state */
+    [data-testid="stSidebarCollapseButton"]::before {
+        content: "chevron_left"; /* Material Symbol name for the collapse arrow */
     }
-    section[data-testid="collapsedControl"]:hover button kbd {
-        color: white !important;
+
+    section[data-testid="collapsedControl"] button::before {
+        content: "chevron_right"; /* Material Symbol name for the expand arrow */
     }
-    /* Style the collapse button when expanded for consistency */
-    [data-testid="stSidebarCollapseButton"] {
-        background-color: #ecebe3 !important;
-        border: 1px solid #d3d2ca !important;
-        border-radius: 0.75rem !important;
-        transition: all 0.2s ease !important;
-    }
-    [data-testid="stSidebarCollapseButton"]:hover {
-        background-color: #cb785c !important;
-        color: white !important;
-    }
-    /* Explicitly style the icon for visibility in expanded state */
-    [data-testid="stSidebarCollapseButton"] kbd {
-        font-size: 20px !important;
-        color: #3d3a2a !important;
-    }
-    [data-testid="stSidebarCollapseButton"]:hover kbd {
-        color: white !important;
-    }
+    /* --- END OF SIDEBAR BUTTON CORRECTION --- */
 
     /* --- Sidebar Progress Indicator (with better contrast) --- */
     .progress-pill {
