@@ -1,4 +1,4 @@
-# app.py (enhanced with beautiful UI/UX and Anthropic-inspired theme integration)
+# app.py (enhanced with beautiful UI/UX and Anthropic-inspired theme integration via config.toml)
 import streamlit as st
 import os
 import tempfile
@@ -18,99 +18,52 @@ from database.service import DatabaseService
 from io import BytesIO
 from xhtml2pdf import pisa
 
-# --- Page Configuration (Set first) ---
+# --- Minimal Custom CSS for Shadows/Hover (Theme handles most) ---
+st.markdown(
+    """
+    <style>
+    /* Card-like containers with shadows and hover */
+    [data-testid="column"] > div > div > div > div > [data-testid="stVerticalBlockBorderWrapper"] {
+        border: 1px solid var(--border-color);
+        border-radius: var(--baseRadius);
+        background: var(--secondary-background-color);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        transition: box-shadow 0.3s ease-in-out;
+        padding: 1rem;
+    }
+    [data-testid="column"] > div > div > div > div > [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    /* Sidebar enhancements: Rounded progress items */
+    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] > div {
+        border-radius: var(--baseRadius);
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        background: var(--secondary-background-color);
+    }
+
+    /* Ensure fonts apply globally */
+    html, body, [class*="st-"], [class*="css-"] {
+        font-family: var(--font-main);
+    }
+
+    /* Button hover lift */
+    .stButton > button:hover {
+        transform: translateY(-2px);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- Page Configuration ---
 st.set_page_config(
     page_title="Resume Optimization Tool",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# --- Anthropic-Inspired Custom CSS ---
-st.markdown(
-    """
-    <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-
-    /* Define theme variables for consistency */
-    :root {
-        --font-main: 'Space Grotesk', sans-serif;
-        --font-code: 'Space Mono', monospace;
-        --primary-color: #cb785c;
-        --background-color: #fdfdf8;
-        --secondary-background-color: #ecebe3;
-        --text-color: #3d3a2a;
-        --border-color: #d3d2ca;
-        --radius: 0.75rem;
-    }
-
-    /* Apply main font to the entire app */
-    html, body, [class*="st-"], [class*="css-"] {
-        font-family: var(--font-main);
-    }
-
-    /* Main app styling */
-    .stApp {
-        background-color: var(--background-color);
-    }
-
-    /* Custom card-like container style for st.container(border=True) */
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius);
-        background: var(--secondary-background-color);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-        transition: box-shadow 0.3s ease-in-out;
-    }
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"]:hover {
-       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    /* Button styling */
-    .stButton > button {
-        border-radius: 9999px; /* Pill shape */
-        transition: transform 0.2s ease, background-color 0.2s ease;
-        font-weight: 600;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-    }
-
-    /* Header styling */
-    .icon-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-    
-    h1, h2, h3, h4, h5, h6 {
-        font-family: var(--font-main);
-        color: var(--text-color);
-    }
-    
-    h1 { font-size: 2.5rem; font-weight: 700; }
-    h2 { font-size: 2rem; font-weight: 600; }
-    h3 { font-size: 1.75rem; font-weight: 600; }
-    h4 { font-size: 1.5rem; font-weight: 600; }
-    h5 { font-size: 1.25rem; font-weight: 600; }
-    h6 { font-size: 1.1rem; font-weight: 600; }
-
-    /* Sidebar enhancements */
-    [data-testid="stSidebar"] {
-        border-right: 1px solid var(--border-color);
-        background-color: #f0f0ec;
-    }
-    
-    [data-testid="stSidebarHeader"] button {
-        visibility: visible;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -122,7 +75,7 @@ def initialize_session_state():
         try:
             st.session_state.db_service.create_or_update_session(st.session_state.session_id)
         except Exception as e:
-            st.error(f"Database connection failed: {str(e)}")
+            st.toast(f"Database connection failed: {str(e)}", icon="❌")
     
     for key in ['resume_text', 'job_description', 'analysis_results', 'optimized_resume', 
                 'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename']:
@@ -130,7 +83,6 @@ def initialize_session_state():
             st.session_state[key] = "" if 'text' in key or 'resume' in key else None
             if key == 'improvements': st.session_state[key] = []
             if key == 'generation_successful': st.session_state[key] = False
-
 
 def populate_html_template(resume_data: dict) -> str:
     """Populates the HTML template for PDF generation."""
@@ -253,15 +205,13 @@ def generate_templated_pdf(resume_data: dict) -> bytes:
     if not pdf.err:
         return result.getvalue()
     else:
-        st.error(f"Error converting HTML to PDF: {pdf.err}. Ensure font files are in the 'static/fonts/' directory.")
+        st.toast(f"Error converting HTML to PDF: {pdf.err}. Ensure font files are in the 'static/fonts/' directory.", icon="❌")
         return None
-
 
 def main():
     initialize_session_state()
 
     with st.sidebar:
-        # --- THIS IS THE FIX: Use HTML for all emoji headers ---
         st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Configuration</h3>', unsafe_allow_html=True)
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
@@ -275,7 +225,7 @@ def main():
                     st.session_state.api_key_validated = True
                     st.rerun()
                 except Exception as e:
-                    st.error("🚫 Invalid Gemini API key.")
+                    st.toast("🚫 Invalid Gemini API key.", icon="❌")
                     st.session_state.api_key_validated = False
         
         if st.session_state.get('api_key_validated'):
@@ -291,9 +241,10 @@ def main():
             ("Resume generated", bool(st.session_state.optimized_resume))
         ]
         for item, completed in progress_items:
-            # --- THIS IS THE FIX: Use HTML for the progress emojis ---
-            emoji = "✅" if completed else "⭕️"
-            st.markdown(f'<div><span style="margin-right: 0.5rem;">{emoji}</span>{item}</div>', unsafe_allow_html=True)
+            emoji = "✅" if completed else "🔲"
+            bg_color = "#cb785c" if completed else "#ecebe3"  # Use theme vars indirectly
+            text_color = "white" if completed else "#3d3a2a"
+            st.markdown(f'<div style="background: {bg_color}; color: {text_color}; border-radius: 999px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;"><span style="margin-right: 0.5rem;">{emoji}</span>{item}</div>', unsafe_allow_html=True)
         
         st.divider()
 
@@ -302,14 +253,14 @@ def main():
                 stats = st.session_state.db_service.get_session_stats(st.session_state.session_id)
                 if stats and stats.get('total_analyses', 0) > 0:
                     st.markdown('<h4><span style="margin-right: 0.5rem;">📈</span>Session Stats</h4>', unsafe_allow_html=True)
-                    st.metric("Analyses Done", stats.get('total_analyses', 0))
+                    st.metric("Analyses Done", stats.get('total_analyses', 0), border=True)
                     if stats.get('average_match_score', 0) > 0:
-                        st.metric("Avg Match Score", f"{stats['average_match_score']:.1f}%")
+                        st.metric("Avg Match Score", f"{stats['average_match_score']:.1f}%", border=True)
             except Exception:
                 pass
         
         st.divider()
-        if st.button("🔄 Start New Session"):
+        if st.button("🔄 Start New Session", type="primary"):
             keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
                 if key not in ['db_service', 'api_key_validated', 'session_id']:
@@ -318,23 +269,24 @@ def main():
 
     st.markdown('<h1><span style="margin-right: 0.75rem;">🚀</span>Resume Optimization Tool</h1>', unsafe_allow_html=True)
     st.markdown("<h4>Enhance your resume with AI-powered analysis and targeted improvements.</h4>", unsafe_allow_html=True)
-    st.write("")
+    st.divider()
 
     if not st.session_state.analysis_results:
         handle_upload_and_input()
     else:
         handle_analysis_display()
 
-
 def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis."""
     st.markdown("<h5>Step 1: Provide Your Resume & the Job Description</h5>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
+        st.markdown('<h5><span style="margin-right: 0.5rem;">📄</span>Your Resume</h5>', unsafe_allow_html=True)
         _render_resume_uploader()
     
     with col2.container(border=True):
+        st.markdown('<h5><span style="margin-right: 0.5rem;">🎯</span>Target Job Description</h5>', unsafe_allow_html=True)
         _render_jd_input()
 
     st.write("")
@@ -342,8 +294,7 @@ def handle_upload_and_input():
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
         is_ready = bool(st.session_state.resume_text and st.session_state.job_description and st.session_state.get('api_key_validated'))
-        # --- THIS IS THE FIX: Use HTML for the button emoji ---
-        if st.button("🔍 Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
+        if st.button("🔍 Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready, help="Start AI analysis and optimization"):
             with st.spinner("Analyzing resume... This may take up to a minute."):
                 try:
                     analyzer = ResumeAnalyzer()
@@ -357,16 +308,15 @@ def handle_upload_and_input():
                         original_filename=st.session_state.get('uploaded_filename', '')
                     )
                     st.session_state.current_analysis_id = analysis.id
+                    st.toast("Analysis complete!", icon="✅")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Analysis failed: {e}")
+                    st.toast(f"❌ Analysis failed: {e}", icon="❌")
         if not is_ready:
-            st.caption("Please upload a resume, paste a job description, and ensure your API key is valid to proceed.")
-
+            st.caption("Please upload a resume, paste a job description, and ensure your API key is valid to proceed.", help="All fields are required for optimization.")
 
 def _render_resume_uploader():
     """Renders the resume upload section."""
-    st.markdown('<h5><span style="margin-right: 0.5rem;">📄</span>Your Resume</h5>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=['pdf', 'docx'], label_visibility="collapsed")
     if uploaded_file:
         if uploaded_file.name != st.session_state.get('uploaded_filename'):
@@ -380,26 +330,24 @@ def _render_resume_uploader():
                     st.session_state.resume_text = parser.parse_document(tmp_file_path)
                     st.session_state.uploaded_filename = uploaded_file.name
                     os.unlink(tmp_file_path)
+                    st.toast(f"✅ Parsed '{st.session_state.uploaded_filename}'", icon="✅")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error parsing file: {e}")
+                    st.toast(f"Error parsing file: {e}", icon="❌")
     
     if st.session_state.resume_text:
-        st.success(f"✅ Parsed '{st.session_state.uploaded_filename}'")
-        with st.expander("Preview Resume Text"):
+        with st.expander("Preview Resume Text", expanded=False):
             st.text_area("Resume Content", st.session_state.resume_text, height=200, disabled=True)
-
 
 def _render_jd_input():
     """Renders the job description input section."""
-    st.markdown('<h5><span style="margin-right: 0.5rem;">🎯</span>Target Job Description</h5>', unsafe_allow_html=True)
     jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=300, label_visibility="collapsed")
     if jd_text != st.session_state.job_description:
         st.session_state.job_description = jd_text
+        st.toast("✅ Job description updated", icon="✅")
         st.rerun()
     if st.session_state.job_description:
         st.success("✅ Job description added.")
-
 
 def handle_analysis_display():
     """Display analysis results and the optimized resume."""
@@ -410,15 +358,15 @@ def handle_analysis_display():
     st.markdown("<h5>Step 2: Review Analysis & Generate Your New Resume</h5>", unsafe_allow_html=True)
 
     results = st.session_state.analysis_results
-    cols = st.columns(4)
-    cols[0].metric("Match Score", f"{results.get('match_score', 0)}%")
-    cols[1].metric("Missing Keywords", results.get('missing_keywords_count', 0))
-    cols[2].metric("Improvements", len(results.get('improvements', [])))
-    cols[3].metric("Overall Rating", results.get('overall_rating', 'N/A'))
+    cols = st.columns(4, gap="small")
+    cols[0].metric("Match Score", f"{results.get('match_score', 0)}%", border=True)
+    cols[1].metric("Missing Keywords", results.get('missing_keywords_count', 0), border=True)
+    cols[2].metric("Improvements", len(results.get('improvements', [])), border=True)
+    cols[3].metric("Overall Rating", results.get('overall_rating', 'N/A'), border=True)
     
-    st.write("")
+    st.divider()
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
         st.markdown('<h5><span style="margin-right: 0.5rem;">✅</span>Strengths</h5>', unsafe_allow_html=True)
         for strength in results.get('strengths', ["No specific strengths identified."]):
@@ -448,7 +396,7 @@ def handle_analysis_display():
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
+        if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True, help="Craft a tailored resume based on analysis"):
             with st.spinner("AI is crafting your new resume... This may take a moment."):
                 try:
                     analyzer = ResumeAnalyzer()
@@ -461,9 +409,11 @@ def handle_analysis_display():
                             st.session_state.current_analysis_id,
                             json.dumps(optimized_structure)
                         )
+                    st.toast("Resume generated successfully!", icon="✨")
+                    st.balloons()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Failed to generate optimized resume: {e}")
+                    st.toast(f"❌ Failed to generate optimized resume: {e}", icon="❌")
 
 def _render_success_page():
     """Displays the final success page with download options."""
@@ -487,7 +437,7 @@ def _render_success_page():
             use_container_width=True
         )
 
-    with st.expander("View Raw Optimized Data (JSON)"):
+    with st.expander("View Raw Optimized Data (JSON)", expanded=False):
         st.json(st.session_state.optimized_resume)
 
 if __name__ == "__main__":

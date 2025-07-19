@@ -1,35 +1,32 @@
-# .streamlit/config.toml
+[[theme.fontFaces]]
+family = "SpaceGrotesk"
+url = "https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7GUBFBs0FZIpFSqPE.woff2"
 
-# This setting is required to serve local font files.
-[server]
-enableStaticServing = true
+[[theme.fontFaces]]
+family = "SpaceGrotesk"
+url = "https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7GUBJFKpOXLNGFw4OD.woff2"
+weight = 600
 
-# This theme is inspired by the Anthropic light theme example.
-# It defines the core colors, fonts, and styles for all Streamlit widgets.
-# All options here are compatible with older Streamlit versions.
-[theme]
-# Colors
-primaryColor = "#cb785c"
-backgroundColor = "#fdfdf8"
-secondaryBackgroundColor = "#ecebe3"
-textColor = "#3d3a2a"
-# linkColor is not a valid option in older versions, it will inherit textColor.
+[[theme.fontFaces]]
+family = "SpaceMono"
+url = "https://fonts.gstatic.com/s/spacemono/v13/i7dPIFZifjKcF5UAWdDRYEF8RXi4EwSs.woff2"
+style = "normal"
+weight = 400
 
-# Borders and Radii
-# borderColor is not a valid option in older versions, but showWidgetBorder works.
-showWidgetBorder = true 
-# baseRadius is not a valid option, but we control this with CSS.
-buttonRadius = "full"
-showSidebarBorder = true
+[[theme.fontFaces]]
+family = "SpaceMono"
+url = "https://fonts.gstatic.com/s/spacemono/v13/i7dMIFZifjKcF5UAWdDRaPpZYFKp.woff2"
+style = "normal"
+weight = 700
 
-# Typography
-font = "Space Grotesk" # Main font for the app
-codeFont = "Space Mono" # Font for code blocks
-# codeFontSize is not a valid option, controlled by CSS.
-# codeBackgroundColor is not a valid option, controlled by CSS.
+[[theme.fontFaces]]
+family = "SpaceMono"
+url = "https://fonts.gstatic.com/s/spacemono/v13/i7dNIFZifjKcF5UAWdDRYER8QHi-Ew.woff2"
+style = "italic"
+weight = 400
 
-# Sidebar Specific Theme
-[theme.sidebar]
-backgroundColor = "#f0f0ec"
-secondaryBackgroundColor = "#e4e4e0"
-# Other sidebar options are not supported and are handled by general theme/CSS.
+[[theme.fontFaces]]
+family = "SpaceMono"
+url = "https://fonts.gstatic.com/s/spacemono/v13/i7dSIFZifjKcF5UAWdDRYEREWFAyQ3g.woff2"
+style = "italic"
+weight = 700

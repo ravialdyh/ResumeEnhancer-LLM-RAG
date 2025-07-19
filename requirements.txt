@@ -1,5 +1,5 @@
 # Core App
-streamlit
+streamlit>=1.47.0
 google-generativeai
 
 # Database
