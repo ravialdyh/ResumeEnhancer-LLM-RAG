@@ -26,17 +26,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS for Anthropic-inspired theme ---
-# This block injects CSS to refine the theme, adding shadows, transitions,
-# and other details that config.toml can't control.
+# --- Custom CSS for Final UI Polish ---
 st.markdown(
     r"""
     <style>
     /* --- FONT IMPORT (FROM GOOGLE FONTS API) --- */
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+    /* Import Material Symbols to ensure icons like the sidebar arrow render correctly */
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
 
     /* --- Base Font Application --- */
-    /* Use theme variables provided by Streamlit for consistency */
     html, body, [class*="st-"], [class*="css-"] {
         font-family: 'Space Grotesk', sans-serif;
     }
@@ -47,15 +46,38 @@ st.markdown(
         font-family: 'Space Mono', monospace;
     }
 
+    /* --- Hide Streamlit Header & Deploy Button --- */
+    [data-testid="stToolbar"] {
+        display: none;
+    }
+    [data-testid="stDeployButton"] {
+        display: none;
+    }
+    
+    /* --- Custom GitHub Icon --- */
+    .github-icon {
+        position: fixed;
+        top: 1rem;
+        right: 1.5rem;
+        z-index: 9999;
+    }
+    .github-icon a {
+        color: #3d3a2a; /* textColor from theme */
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .github-icon a:hover {
+        color: #cb785c; /* primaryColor from theme */
+    }
+
     /* --- Card-like Containers --- */
-    /* This targets containers created with st.container(border=True) */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: var(--secondary-background-color);
         border: 1px solid var(--border-color);
         border-radius: var(--baseRadius);
         box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
         transition: box-shadow 0.3s ease-in-out;
-        padding: 1.5rem; /* Add more padding for a spacious feel */
+        padding: 1.5rem;
     }
     [data-testid="stVerticalBlockBorderWrapper"]:hover {
         box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05);
@@ -66,10 +88,9 @@ st.markdown(
         border-right: 1px solid var(--border-color);
     }
 
-    /* --- Sidebar Progress Indicator --- */
-    /* A custom class for our progress pills for cleaner code */
+    /* --- Sidebar Progress Indicator (with better contrast) --- */
     .progress-pill {
-        background-color: #ecebe3; /* Default background */
+        background-color: #ecebe3;
         color: #3d3a2a;
         border-radius: 9999px;
         padding: 0.5rem 1rem;
@@ -81,9 +102,9 @@ st.markdown(
         border: 1px solid #d3d2ca;
     }
     .progress-pill.completed {
-        background-color: var(--primary-color);
+        background-color: #a25f48; /* Darker shade of primaryColor for contrast */
         color: white;
-        border-color: var(--primary-color);
+        border-color: #a25f48;
     }
     .progress-pill .emoji {
         margin-right: 0.75rem;
@@ -138,14 +159,16 @@ def initialize_session_state():
             if key == 'generation_successful': st.session_state[key] = False
 
 def populate_html_template(resume_data: dict) -> str:
-    """Populates the HTML template for PDF generation. (No changes to this function)"""
+    """
+    Populates the HTML template for PDF generation.
+    """
     def build_experience_html(experiences):
         html = ""
         for exp in experiences:
             tasks_html = ""
             for task in exp.get('tasks', []):
                 bullets_html = "".join([f"<li>{bullet}</li>" for bullet in task.get('bullets', [])])
-                tools = task.get('tools', '')
+                tools = exp.get('tools', '')
                 if bullets_html: tasks_html += f"<ul>{bullets_html}</ul>"
                 if tools: tasks_html += f'<div class="tools">Tools: {tools}</div>'
             additional = exp.get('additional', '')
@@ -207,10 +230,6 @@ def populate_html_template(resume_data: dict) -> str:
     skills_html = f'<h2>Skills</h2><p><strong>Technical:</strong> {skills.get("technical", "")}<br><strong>Interests:</strong> {skills.get("interests", "")}</p>' if skills else ''
     certifications_html = f'<h2>Certifications</h2>{build_simple_list_html(resume_data.get("certifications", []))}' if resume_data.get("certifications") else ''
 
-    # NOTE: The PDF generation uses its own font loading. This part is separate
-    # from the Streamlit UI and should still work with your local files.
-    # If the PDF fonts are also broken, you would need to fix the font files
-    # in static/fonts/ for the PDF generator to work.
     html_template = f"""
     <!DOCTYPE html>
     <html>
@@ -218,12 +237,39 @@ def populate_html_template(resume_data: dict) -> str:
         <meta charset="UTF-8">
         <title>{name} - Resume</title>
         <style>
-            @font-face {{ font-family: 'SpaceGrotesk'; src: url('static/fonts/SpaceGrotesk-VariableFont_wght.ttf'); }}
-            @font-face {{ font-family: 'SpaceMono'; src: url('static/fonts/SpaceMono-Regular.ttf'); }}
-            body {{ font-family: 'SpaceGrotesk', sans-serif; font-size: 10.5pt; line-height: 1.5; color: #333; margin: 0.5in; }}
-            h1 {{ font-size: 24pt; text-align: center; margin: 0; padding-bottom: 10px; border-bottom: 2px solid #333; letter-spacing: 2px; }}
+            @font-face {{ 
+                font-family: 'Space Grotesk'; 
+                src: url('static/fonts/SpaceGrotesk-VariableFont_wght.ttf'); 
+            }}
+            @font-face {{ 
+                font-family: 'Space Mono'; 
+                src: url('static/fonts/SpaceMono-Regular.ttf'); 
+            }}
+            body {{ 
+                font-family: 'Space Grotesk', sans-serif; 
+                font-size: 10.5pt; 
+                line-height: 1.5; 
+                color: #333; 
+                margin: 0.5in; 
+            }}
+            h1 {{ 
+                font-family: 'Space Grotesk', sans-serif;
+                font-size: 24pt; 
+                text-align: center; 
+                margin: 0; 
+                padding-bottom: 10px; 
+                border-bottom: 2px solid #333; 
+                letter-spacing: 2px; 
+            }}
             .contact-info {{ text-align: center; font-size: 10pt; margin-top: 8px; margin-bottom: 20px; }}
-            h2 {{ font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }}
+            h2 {{ 
+                font-family: 'Space Grotesk', sans-serif;
+                font-size: 14pt; 
+                border-bottom: 1px solid #ccc; 
+                padding-bottom: 4px; 
+                margin-top: 20px; 
+                margin-bottom: 10px; 
+            }}
             .experience-item {{ margin-bottom: 15px; page-break-inside: avoid; }}
             .job-header, .company-header {{ display: flex; justify-content: space-between; width: 100%; }}
             .position, .institution {{ font-weight: bold; }}
@@ -231,7 +277,12 @@ def populate_html_template(resume_data: dict) -> str:
             ul {{ padding-left: 20px; margin-top: 5px; margin-bottom: 5px; }}
             li {{ margin-bottom: 4px; }}
             p {{ margin: 0 0 10px 0; }}
-            .tools {{ font-family: 'SpaceMono', monospace; font-size: 9pt; color: #444; margin-top: 5px; }}
+            .tools {{ 
+                font-family: 'Space Mono', monospace; 
+                font-size: 9pt; 
+                color: #444; 
+                margin-top: 5px; 
+            }}
             a {{ color: #0073B1; text-decoration: none; }}
         </style>
     </head>
@@ -250,7 +301,7 @@ def populate_html_template(resume_data: dict) -> str:
     return html_template
 
 def generate_templated_pdf(resume_data: dict) -> bytes:
-    """Generate a PDF from the structured resume data using an HTML template. (No changes to this function)"""
+    """Generate a PDF from the structured resume data using an HTML template."""
     html_content = populate_html_template(resume_data)
     result = BytesIO()
     pdf = pisa.CreatePDF(BytesIO(html_content.encode("UTF-8")), dest=result, link_callback=lambda uri, rel: os.path.join(os.getcwd(), uri.replace("/", os.sep)))
@@ -266,7 +317,7 @@ def main():
 
     # --- Sidebar ---
     with st.sidebar:
-        st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Configuration</h3>', unsafe_allow_html=True)
+        st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Settings</h3>', unsafe_allow_html=True)
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         if not gemini_api_key:
@@ -327,6 +378,19 @@ def main():
             st.rerun()
 
     # --- Main Content ---
+    st.markdown(
+        """
+        <div class="github-icon">
+            <a href="https://github.com/ravialdyh/ResumeEnhancer-LLM-RAG" target="_blank" title="View on GitHub">
+                <svg height="32" aria-hidden="true" viewBox="0 0 16 16" version="1.1" width="32" data-view-component="true">
+                    <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.19.01-.82.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21-.15.46-.55.38A8.013 8.013 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
+                </svg>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
     st.markdown('<h1><span style="margin-right: 0.75rem;">🚀</span>Resume Optimization Tool</h1>', unsafe_allow_html=True)
     st.markdown("<h4>Enhance your resume with AI-powered analysis and targeted improvements.</h4>", unsafe_allow_html=True)
     st.divider()
