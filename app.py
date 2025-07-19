@@ -1,4 +1,4 @@
-# app.py (updated)
+# app.py (updated with enhanced UI/UX and Anthropic-inspired light theme integration)
 import streamlit as st
 import os
 import tempfile
@@ -18,7 +18,87 @@ from database.service import DatabaseService
 from io import BytesIO
 from xhtml2pdf import pisa
 
-# Page configuration
+
+st.markdown("""
+    <style>
+    @font-face {
+        font-family: 'Space Grotesk';
+        src: url('/static/SpaceGrotesk-VariableFont_wght.ttf') format('truetype');
+        font-weight: 400 700;
+        font-style: normal;
+    }
+    @font-face {
+        font-family: 'Space Grotesk';
+        src: url('/static/SpaceGrotesk-SemiBold.ttf') format('truetype');
+        font-weight: 600;
+        font-style: normal;
+    }
+    @font-face {
+        font-family: 'Space Mono';
+        src: url('/static/SpaceMono-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
+    @font-face {
+        font-family: 'Space Mono';
+        src: url('/static/SpaceMono-Italic.ttf') format('truetype');
+        font-weight: normal;
+        font-style: italic;
+    }
+    @font-face {
+        font-family: 'Space Mono';
+        src: url('/static/SpaceMono-Bold.ttf') format('truetype');
+        font-weight: bold;
+        font-style: normal;
+    }
+    @font-face {
+        font-family: 'Space Mono';
+        src: url('/static/SpaceMono-BoldItalic.ttf') format('truetype');
+        font-weight: bold;
+        font-style: italic;
+    }
+    :root {
+        --font-serif: 'Space Grotesk', sans-serif;
+        --font-mono: 'Space Mono', monospace;
+    }
+    body, .stApp {
+        font-family: var(--font-serif);
+        background-color: #FAFAFA;  /* Light off-white for Anthropic-inspired softness */
+    }
+    .stButton>button {
+        border-radius: 8px;  /* Rounded buttons for modern feel */
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+        border-radius: 8px;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .stContainer, .stExpander, .stPopover {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);  /* Subtle shadows for depth */
+        background-color: #FFFFFF;  /* White cards on light background */
+        padding: 16px;  /* Ample padding for breathing room */
+    }
+    .stMetric {
+        background-color: #F0F4F8;  /* Soft blue-gray for metrics */
+        border-radius: 8px;
+        padding: 8px;
+    }
+    .stProgress>div>div>div>div {
+        background-color: #4A90E2;  /* Anthropic-inspired blue for progress */
+    }
+    .sidebar .stSidebar {
+        background-color: #FFFFFF;
+        border-right: 1px solid #EDEDED;
+    }
+    /* Ensure collapsible sidebar button is visible */
+    [data-testid="stSidebarHeader"] button {
+        visibility: visible;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Page configuration (wide layout for better UX on desktops)
 st.set_page_config(
     page_title="Resume Optimization Tool",
     page_icon="📄",
@@ -192,7 +272,7 @@ def populate_html_template(resume_data: dict) -> str:
     certifications_html = f'<div class="section-title">RELATED INTERNATIONAL CERTIFICATION</div>{build_certifications_html(resume_data.get("certifications", []))}' if resume_data.get('certifications') else ''
     skills_html = f'<div class="section-title">SKILLS & INTERESTS</div>{build_skills_html(resume_data.get("skills", {}))}' if resume_data.get('skills') else ''
 
-    # Full HTML template
+    # Full HTML template (with minor tweaks for better PDF rendering alignment with theme)
     html_template = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -263,25 +343,13 @@ def generate_templated_pdf(resume_data: dict) -> bytes:
 
 def main():
     initialize_session_state()
-
-    # Inject custom CSS to make the default sidebar collapse button always visible
-    st.markdown(
-        """
-        <style>
-            [data-testid="stSidebarHeader"] button {
-                visibility: visible;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     
-    # Header
+    # Header (with icon for better UX)
     st.title("🚀 Resume Optimization Tool")
-    st.markdown("Enhance your resume with AI-powered analysis and targeted improvements")
+    st.markdown("Enhance your resume with AI-powered analysis and targeted improvements. Powered by Gemini AI.", unsafe_allow_html=True)
     
     with st.sidebar:
-        st.header("Configuration")
+        st.header("Configuration", divider="gray")  # Subtle divider for sections
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         
@@ -307,7 +375,7 @@ def main():
         else:
             st.warning("Please provide a valid API key to proceed.")
         
-        st.markdown("---")
+        st.divider()  # Cleaner separator
         
         st.subheader("Progress")
         progress_items = [
@@ -318,10 +386,10 @@ def main():
         ]
         
         for item, completed in progress_items:
-            icon = "✅" if completed else "⭕"
+            icon = "✅" if completed else "🔲"
             st.markdown(f"{icon} {item}")
         
-        st.markdown("---")
+        st.divider()
         
         if hasattr(st.session_state, 'db_service'):
             try:
@@ -340,9 +408,9 @@ def main():
                                 score = f"{h.match_score}%" if h.match_score else "N/A"
                                 st.markdown(f"**{job_title[:30]}{'...' if len(job_title) > 30 else ''}**")
                                 st.markdown(f"Score: {score} | {h.created_at.strftime('%m/%d %H:%M')}")
-                                st.markdown("---")
+                                st.divider()
                     
-                    st.markdown("---")
+                    st.divider()
             except Exception as e:
                 st.warning(f"Database statistics unavailable: {e}")
         
@@ -352,80 +420,80 @@ def main():
                 del st.session_state[key]
             st.rerun()
     
-    # --- Simplified Main Control Flow ---
-    if not st.session_state.analysis_results:
+    # --- Enhanced Main Control Flow with Tabs for Better UX ---
+    # Use tabs to separate stages: Input, Analysis, Optimization
+    tab_input, tab_analysis, tab_optimization = st.tabs(["📥 Input", "🔍 Analysis", "✨ Optimization"])
+    
+    with tab_input:
         handle_upload_and_input()
-    else:
-        # If analysis results exist, show them, along with a summary of the inputs.
-        st.header("📄 Input Summary")
-        col1, col2, col3 = st.columns([3, 3, 2])
-        with col1:
-            st.metric("Resume", "Uploaded", f"{len(st.session_state.resume_text)} chars")
-        with col2:
-            st.metric("Job Description", "Added", f"{len(st.session_state.job_description)} chars")
-        with col3:
-            # This button allows the user to go back and edit their inputs.
-            if st.button("✏️ Edit Inputs & Re-analyze", type="secondary"):
-                # Clear results to go back to the input page
-                st.session_state.analysis_results = None
-                st.session_state.optimized_resume = ""
-                st.session_state.generation_successful = False
-                st.rerun()
-
-        st.markdown("---")
-        handle_analysis()
+    
+    with tab_analysis:
+        if st.session_state.analysis_results:
+            handle_analysis()
+        else:
+            st.info("Complete the input tab and analyze to see results here.")
+    
+    with tab_optimization:
+        if st.session_state.generation_successful:
+            handle_success_page()
+        elif st.session_state.analysis_results:
+            handle_optimization_trigger()
+        else:
+            st.info("Analyze your resume first to generate optimizations.")
 
 def handle_upload_and_input():
-    """Handle resume upload, job description input, and trigger analysis."""
-    st.header("Step 1: Upload Resume & Job Description")
+    """Handle resume upload, job description input, and trigger analysis with improved layout."""
+    st.header("Upload Your Resume & Job Description")
     _render_input_form()
     
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Analysis trigger is now always shown on the input page.
+    # Centered analyze button with progress spinner
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
         is_api_key_valid = st.session_state.get('api_key_validated', False)
         inputs_ready = bool(st.session_state.resume_text and st.session_state.job_description)
 
-        # The button is disabled if the API key is invalid OR inputs are not ready.
         if st.button("🔍 Analyze Resume", type="primary", use_container_width=True, disabled=not (is_api_key_valid and inputs_ready)):
-            with st.spinner("Analyzing resume... Please wait, this may take up to 1 minute."):
+            progress_bar = st.progress(0, text="Analyzing resume... (0%)")
+            try:
+                analyzer = ResumeAnalyzer()
+                results = analyzer.analyze_resume(
+                    st.session_state.resume_text,
+                    st.session_state.job_description
+                )
+                progress_bar.progress(50, text="Analyzing resume... (50%)")
+                st.session_state.analysis_results = results
+                
+                # Save analysis to the database.
                 try:
-                    analyzer = ResumeAnalyzer()
-                    results = analyzer.analyze_resume(
-                        st.session_state.resume_text,
-                        st.session_state.job_description
+                    analysis = st.session_state.db_service.save_analysis(
+                        session_id=st.session_state.session_id,
+                        resume_text=st.session_state.resume_text,
+                        job_description=st.session_state.job_description,
+                        analysis_results=results,
+                        original_filename=getattr(st.session_state, 'uploaded_filename', '')
                     )
-                    st.session_state.analysis_results = results
-                    
-                    # Save analysis to the database.
-                    try:
-                        analysis = st.session_state.db_service.save_analysis(
-                            session_id=st.session_state.session_id,
-                            resume_text=st.session_state.resume_text,
-                            job_description=st.session_state.job_description,
-                            analysis_results=results,
-                            original_filename=getattr(st.session_state, 'uploaded_filename', '')
-                        )
-                        st.session_state.current_analysis_id = analysis.id
-                    except Exception as db_error:
-                        st.warning(f"Analysis completed but couldn't save to database: {str(db_error)}")
-                    
-                    st.success("✅ Analysis completed!")
-                    st.balloons()
-                    st.rerun() # This rerun will now correctly show the analysis page.
-                except Exception as e:
-                    st.error(f"❌ Analysis failed: {str(e)}")
+                    st.session_state.current_analysis_id = analysis.id
+                except Exception as db_error:
+                    st.warning(f"Analysis completed but couldn't save to database: {str(db_error)}")
+                
+                progress_bar.progress(100, text="Analysis completed! (100%)")
+                st.success("✅ Analysis completed!")
+                st.balloons()
+                st.rerun()
+            except Exception as e:
+                progress_bar.empty()
+                st.error(f"❌ Analysis failed: {str(e)}")
 
-        st.caption("Analysis may take 30-60 seconds depending on document size and AI processing.")
+        st.caption("Analysis may take 30-60 seconds depending on document size and AI processing.", unsafe_allow_html=True)
 
 
 def _render_input_form():
-    """Render the input form for resume and job description"""
-    col1, col2 = st.columns([1, 1])
+    """Render the input form for resume and job description with balanced columns and previews."""
+    col1, col2 = st.columns(2, gap="medium")  # Medium gap for better spacing
     
-    with col1:
+    with col1.container(border=True):  # Card-like container
         st.subheader("📎 Upload Resume")
         
         uploaded_file = st.file_uploader(
@@ -460,12 +528,12 @@ def _render_input_form():
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
     
-    with col2:
+    with col2.container(border=True):  # Card-like container
         st.subheader("💼 Job Description")
         job_description = st.text_area(
             "Enter the job description or role requirements",
             value=st.session_state.job_description,
-            height=320, # Adjusted height to better balance the layout
+            height=320,
             help="Paste the complete job description, requirements, and qualifications"
         )
         
@@ -476,59 +544,31 @@ def _render_input_form():
             st.success(f"✅ Job description entered ({len(job_description)} characters)")
 
 def handle_analysis():
-    """Handle analysis results display"""
+    """Handle analysis results display with metrics and popovers in cards."""
     if not st.session_state.analysis_results:
         return
 
-    # --- NEW: Success Page Flow ---
-    if st.session_state.get('generation_successful', False):
-        st.header("🎉 Optimized Resume Generated Successfully!")
-        st.balloons()
-        st.markdown("Your new resume is ready. You can download it below.")
-
-        col1, col2 = st.columns(2)
-        with col1:
-             pdf_data = generate_templated_pdf(st.session_state.optimized_resume)
-             st.download_button(
-                label="📄 Download Optimized Resume (PDF)",
-                data=pdf_data,
-                file_name="optimized_resume.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                type="primary"
-            )
-        with col2:
-            report_str = json.dumps(st.session_state.analysis_results, indent=2)
-            st.download_button(
-                label="📊 Download Analysis Report (JSON)",
-                data=report_str,
-                file_name="resume_analysis_report.json",
-                mime="application/json",
-                use_container_width=True
-            )
-        return # End the function here to only show the success page
-
-    # --- Original Analysis Display (Now with Popovers) ---
     st.header("🔍 AI Analysis Results")
     
     results = st.session_state.analysis_results
     
+    # Metrics in a row with cards
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
+    with col1.container(border=True):
         st.metric("Match Score", f"{results.get('match_score', 0)}%")
-    with col2:
+    with col2.container(border=True):
         st.metric("Missing Keywords", results.get('missing_keywords_count', 0))
-    with col3:
+    with col3.container(border=True):
         st.metric("Improvements", len(results.get('improvements', [])))
-    with col4:
+    with col4.container(border=True):
         st.metric("Overall Rating", results.get('overall_rating', 'N/A'))
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.divider()
     
-    # --- NEW: Popover Buttons ---
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        with st.popover("🎯 View Key Findings", use_container_width=True):
+    # Popover buttons in columns for key findings and improvements
+    col1, col2 = st.columns(2, gap="medium")
+    with col1.container(border=True):
+        with st.popover("🎯 Key Findings", use_container_width=True):
             st.markdown("<h5>Key Findings</h5>", unsafe_allow_html=True)
             if results.get('missing_keywords'):
                 st.markdown("<h6>Missing Important Keywords:</h6>", unsafe_allow_html=True)
@@ -539,8 +579,8 @@ def handle_analysis():
                 for strength in results['strengths']:
                     st.markdown(f"✅ {strength}")
 
-    with col2:
-        with st.popover("🔧 View Recommended Improvements", use_container_width=True):
+    with col2.container(border=True):
+        with st.popover("🔧 Recommended Improvements", use_container_width=True):
             st.markdown("<h5>Recommended Improvements</h5>", unsafe_allow_html=True)
             if results.get('improvements'):
                 for i, improvement in enumerate(results['improvements']):
@@ -551,45 +591,91 @@ def handle_analysis():
                         priority_color = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}
                         st.markdown(f"**Priority:** {priority_color.get(improvement['priority'], '⚪')} {improvement['priority']}")
                     if i < len(results['improvements']) - 1:
-                        st.markdown("---")
+                        st.divider()
 
 
-    st.markdown("---")
+    st.divider()
 
-    # --- Generate Button with Repositioned Caption ---
+    # Input summary and edit button
+    st.header("📄 Input Summary")
+    col1, col2, col3 = st.columns([3, 3, 2])
+    with col1:
+        st.metric("Resume", "Uploaded", f"{len(st.session_state.resume_text)} chars")
+    with col2:
+        st.metric("Job Description", "Added", f"{len(st.session_state.job_description)} chars")
+    with col3:
+        if st.button("✏️ Edit Inputs & Re-analyze", type="secondary"):
+            st.session_state.analysis_results = None
+            st.session_state.optimized_resume = ""
+            st.session_state.generation_successful = False
+            st.rerun()
+
+def handle_optimization_trigger():
+    """Trigger optimization with progress bar."""
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("✨ Generate Optimized Resume", type="primary", use_container_width=True):
-            with st.spinner("Generating optimized resume... Please wait, this may take up to 1 minute."):
-                try:
-                    analyzer = ResumeAnalyzer()
-                    resume_structure = analyzer.parse_resume_to_structure(st.session_state.resume_text)
-                    
-                    optimized_structure = analyzer.generate_optimized_resume(
-                        resume_structure,
-                        st.session_state.job_description
-                    )
-                    
-                    st.session_state.optimized_resume = optimized_structure
-                    st.session_state.generation_successful = True # Set flag for success page
-                    
-                    if st.session_state.current_analysis_id:
-                        try:
-                            optimized_text = json.dumps(optimized_structure, indent=2)
-                            st.session_state.db_service.update_optimized_resume(
-                                st.session_state.current_analysis_id,
-                                optimized_text
-                            )
-                        except Exception as db_error:
-                            st.warning(f"Optimized resume generated but couldn't update database: {str(db_error)}")
-                    
-                    st.rerun()
-                except json.JSONDecodeError as json_error:
-                    st.error(f"❌ Failed to parse AI response. The model did not return valid JSON. Error: {json_error}")
-                except Exception as e:
-                    st.error(f"❌ Failed to generate optimized resume: {str(e)}")
+            progress_bar = st.progress(0, text="Generating optimized resume... (0%)")
+            try:
+                analyzer = ResumeAnalyzer()
+                resume_structure = analyzer.parse_resume_to_structure(st.session_state.resume_text)
+                progress_bar.progress(50, text="Generating optimized resume... (50%)")
+                
+                optimized_structure = analyzer.generate_optimized_resume(
+                    resume_structure,
+                    st.session_state.job_description
+                )
+                
+                st.session_state.optimized_resume = optimized_structure
+                st.session_state.generation_successful = True
+                
+                if st.session_state.current_analysis_id:
+                    try:
+                        optimized_text = json.dumps(optimized_structure, indent=2)
+                        st.session_state.db_service.update_optimized_resume(
+                            st.session_state.current_analysis_id,
+                            optimized_text
+                        )
+                    except Exception as db_error:
+                        st.warning(f"Optimized resume generated but couldn't update database: {str(db_error)}")
+                
+                progress_bar.progress(100, text="Optimization completed! (100%)")
+                st.rerun()
+            except json.JSONDecodeError as json_error:
+                progress_bar.empty()
+                st.error(f"❌ Failed to parse AI response. The model did not return valid JSON. Error: {json_error}")
+            except Exception as e:
+                progress_bar.empty()
+                st.error(f"❌ Failed to generate optimized resume: {str(e)}")
         
-        st.caption("Optimization may take 30-60 seconds depending on document size and AI processing.")
+        st.caption("Optimization may take 30-60 seconds depending on document size and AI processing.", unsafe_allow_html=True)
+
+def handle_success_page():
+    """Success page with downloads."""
+    st.header("🎉 Optimized Resume Generated Successfully!")
+    st.balloons()
+    st.markdown("Your new resume is ready. Download it below.")
+
+    col1, col2 = st.columns(2, gap="medium")
+    with col1.container(border=True):
+         pdf_data = generate_templated_pdf(st.session_state.optimized_resume)
+         st.download_button(
+            label="📄 Download Optimized Resume (PDF)",
+            data=pdf_data,
+            file_name="optimized_resume.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary"
+        )
+    with col2.container(border=True):
+        report_str = json.dumps(st.session_state.analysis_results, indent=2)
+        st.download_button(
+            label="📊 Download Analysis Report (JSON)",
+            data=report_str,
+            file_name="resume_analysis_report.json",
+            mime="application/json",
+            use_container_width=True
+        )
 
 if __name__ == "__main__":
     main()
