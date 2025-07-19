@@ -1,7 +1,12 @@
-# utils/text_processor.py (updated - removed old parse method)
 import re
 import logging
 from typing import List, Dict, Any
+import numpy as np
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
 
 class TextProcessor:
     """Utility class for text processing and analysis"""
@@ -29,17 +34,42 @@ class TextProcessor:
             ]
         }
         
-        # Regex patterns for identifying section headers
-        self.section_patterns = {
-            'experience': r'(?i)(work\s+)?experience|employment|professional\s+experience|career\s+history',
-            'education': r'(?i)education|academic|qualifications|degrees?',
-            'skills': r'(?i)skills|competencies|technical\s+skills|core\s+competencies',
-            'summary': r'(?i)summary|profile|objective|about|overview',
-            'projects': r'(?i)projects?|portfolio|work\s+samples',
-            'certifications': r'(?i)certifications?|certificates?|licenses?',
-            'achievements': r'(?i)achievements?|accomplishments?|awards?|honors?',
-            'contact': r'(?i)contact|personal\s+information|details'
+        # Prototype phrases for semantic classification (examples per section; expand as needed for better coverage)
+        self.resume_section_prototypes = {
+            'experience': ['work experience', 'professional experience', 'employment history', 'career history', 'job experience'],
+            'education': ['education', 'academic background', 'qualifications', 'degrees', 'schooling'],
+            'skills': ['skills', 'technical skills', 'competencies', 'core skills', 'abilities'],
+            'summary': ['summary', 'professional profile', 'objective', 'about me', 'overview'],
+            'projects': ['projects', 'portfolio', 'work samples', 'notable projects', 'personal projects'],
+            'certifications': ['certifications', 'certificates', 'licenses', 'professional certifications', 'credentials'],
+            'achievements': ['achievements', 'accomplishments', 'awards', 'honors', 'recognitions'],
+            'contact': ['contact information', 'personal details', 'contact', 'info', 'reach me']
         }
+        
+        self.job_section_prototypes = {
+            'responsibilities': ['responsibilities', 'duties', 'role', 'key responsibilities', 'what you will do', 'job duties', 'tasks'],
+            'requirements': ['requirements', 'qualifications', 'skills required', 'must have', 'essential skills', 'job requirements'],
+            'preferred': ['preferred skills', 'nice to have', 'desired qualifications', 'additional skills', 'bonus'],
+            'company': ['about us', 'company overview', 'our team', 'about the company', 'organization info'],
+            'benefits': ['benefits', 'perks', 'what we offer', 'compensation', 'employee benefits'],
+            'application': ['how to apply', 'application process', 'apply now', 'submission instructions']
+        }
+        
+        # Load semantic model if available
+        self.section_model = SentenceTransformer('all-MiniLM-L6-v2') if SentenceTransformer else None
+        
+        # Precompute prototype embeddings if model available
+        if self.section_model:
+            self.resume_prototype_embs = {
+                k: np.mean(self.section_model.encode(v), axis=0)
+                for k, v in self.resume_section_prototypes.items()
+            }
+            self.job_prototype_embs = {
+                k: np.mean(self.section_model.encode(v), axis=0)
+                for k, v in self.job_section_prototypes.items()
+            }
+        else:
+            raise ImportError("SentenceTransformer is required for semantic section extraction. Please install it via 'pip install sentence-transformers'.")
     
     def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
         """
@@ -169,7 +199,7 @@ class TextProcessor:
     
     def extract_resume_sections(self, resume_text: str) -> Dict[str, str]:
         """
-        Extract different sections from resume text using regex patterns.
+        Extract different sections from resume text using semantic similarity (or fallback regex).
         
         Args:
             resume_text (str): Resume content.
@@ -177,40 +207,86 @@ class TextProcessor:
         Returns:
             Dict[str, str]: Dictionary mapping section names to their content.
         """
+        return self._extract_sections(resume_text, is_resume=True)
+    
+    def extract_job_sections(self, job_description: str) -> Dict[str, str]:
+        """
+        Extract different sections from job description text using semantic similarity (or fallback regex).
+        
+        Args:
+            job_description (str): Job description content.
+            
+        Returns:
+            Dict[str, str]: Dictionary mapping section names to their content.
+        """
+        return self._extract_sections(job_description, is_resume=False)
+    
+    def _extract_sections(self, text: str, is_resume: bool) -> Dict[str, str]:
+        """
+        Shared method for semantic section extraction.
+        
+        Args:
+            text (str): Input text (resume or job description).
+            is_resume (bool): True for resumes, False for job descriptions.
+            
+        Returns:
+            Dict[str, str]: Extracted sections.
+        """
         sections = {}
-        lines = resume_text.split('\n')
-        current_section = 'header' # Default section for content at the top
+        lines = text.split('\n')
+        current_section = 'header'  # Default for top content
         current_content = []
+        header_positions = {}  # Track start lines of detected sections
         
-        for line in lines:
-            stripped_line = line.strip()
-            if not stripped_line:
-                continue
-            
-            # Check if the line matches a section header pattern
-            section_found = None
-            # A line is considered a header if it's short and matches a pattern
-            if len(stripped_line) < 50: 
-                for section_name, pattern in self.section_patterns.items():
-                    if re.match(pattern, stripped_line):
-                        section_found = section_name
-                        break
-            
-            if section_found:
-                # Save the content of the previous section
-                if current_content:
-                    sections[current_section] = '\n'.join(current_content).strip()
+        # Identify potential headers (short, non-empty lines)
+        potential_headers = []
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped and len(stripped) < 60:  # Typical header length
+                potential_headers.append((i, stripped.lower()))
+        
+        detected_sections = {}
+        if self.section_model and (is_resume and self.resume_prototype_embs or not is_resume and self.job_prototype_embs):
+            # Semantic classification
+            header_texts = [h[1] for h in potential_headers]
+            if header_texts:
+                header_embs = self.section_model.encode(header_texts)
+                prototype_embs = self.resume_prototype_embs if is_resume else self.job_prototype_embs
                 
-                # Start a new section
-                current_section = section_found
-                # Include the header line in the section content if it's descriptive
-                header_content = stripped_line.replace(re.match(pattern, stripped_line).group(0), "").strip()
-                current_content = [header_content] if header_content else []
-            else:
-                current_content.append(line)
+                for idx, header_emb in enumerate(header_embs):
+                    similarities = {}
+                    for sec_name, proto_emb in prototype_embs.items():
+                        # Cosine similarity
+                        sim = np.dot(header_emb, proto_emb) / (np.linalg.norm(header_emb) * np.linalg.norm(proto_emb))
+                        similarities[sec_name] = sim
+                    
+                    max_sec = max(similarities, key=similarities.get)
+                    if similarities[max_sec] > 0.5:  # Threshold for match; tune if needed
+                        line_num, header_text = potential_headers[idx]
+                        detected_sections[line_num] = max_sec
+        else:
+            raise ImportError("SentenceTransformer is required for semantic section extraction. Please install it via 'pip install sentence-transformers'.")
         
-        # Save the last section's content
-        if current_content:
-            sections[current_section] = '\n'.join(current_content).strip()
+        # Sort detected sections by line number
+        sorted_sections = sorted(detected_sections.items())
+        
+        # Assign content between headers
+        prev_line = 0
+        for j, (line_num, sec_name) in enumerate(sorted_sections):
+            # Content from previous header to current
+            section_content = '\n'.join(lines[prev_line:line_num]).strip()
+            if section_content:
+                sections[current_section] = section_content
+            
+            # Start new section (include header if descriptive)
+            current_section = sec_name
+            header_content = lines[line_num].strip()
+            current_content = [header_content] if header_content else []
+            prev_line = line_num + 1  # Content starts after header
+        
+        # Add remaining content
+        remaining_content = '\n'.join(lines[prev_line:]).strip()
+        if remaining_content:
+            sections[current_section] = remaining_content
         
         return sections
