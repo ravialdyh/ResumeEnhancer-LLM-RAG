@@ -1,32 +1,61 @@
-[[theme.fontFaces]]
-family = "SpaceGrotesk"
-url = "https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7GUBFBs0FZIpFSqPE.woff2"
+[server]
+enableStaticServing = true
 
 [[theme.fontFaces]]
 family = "SpaceGrotesk"
-url = "https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7GUBJFKpOXLNGFw4OD.woff2"
+url = "static/fonts/SpaceGrotesk-VariableFont_wght.ttf"
+
+[[theme.fontFaces]]
+family = "SpaceGrotesk"
+url = "static/fonts/SpaceGrotesk-SemiBold.ttf"
 weight = 600
 
 [[theme.fontFaces]]
 family = "SpaceMono"
-url = "https://fonts.gstatic.com/s/spacemono/v13/i7dPIFZifjKcF5UAWdDRYEF8RXi4EwSs.woff2"
+url = "static/fonts/SpaceMono-Regular.ttf"
 style = "normal"
 weight = 400
 
 [[theme.fontFaces]]
 family = "SpaceMono"
-url = "https://fonts.gstatic.com/s/spacemono/v13/i7dMIFZifjKcF5UAWdDRaPpZYFKp.woff2"
+url = "static/fonts/SpaceMono-Bold.ttf"
 style = "normal"
 weight = 700
 
 [[theme.fontFaces]]
 family = "SpaceMono"
-url = "https://fonts.gstatic.com/s/spacemono/v13/i7dNIFZifjKcF5UAWdDRYER8QHi-Ew.woff2"
+url = "static/fonts/SpaceMono-Italic.ttf"
 style = "italic"
 weight = 400
 
 [[theme.fontFaces]]
 family = "SpaceMono"
-url = "https://fonts.gstatic.com/s/spacemono/v13/i7dSIFZifjKcF5UAWdDRYEREWFAyQ3g.woff2"
+url = "static/fonts/SpaceMono-BoldItalic.ttf"
 style = "italic"
 weight = 700
+
+[theme]
+primaryColor = "#cb785c"
+backgroundColor = "#fdfdf8"
+secondaryBackgroundColor = "#ecebe3"
+textColor = "#3d3a2a"
+linkColor = "#3d3a2a"
+borderColor = "#d3d2ca"
+showWidgetBorder = true
+baseRadius = "0.75rem"
+buttonRadius = "full"
+font = "SpaceGrotesk"
+headingFontWeights = [700,600,600,600,600,600]
+headingFontSizes = ["2.5rem", "2rem", "1.75rem", "1.5rem", "1.25rem", "1.1rem"]
+codeFont = "SpaceMono"
+codeFontSize = ".75rem"
+codeBackgroundColor = "#ecebe4"
+showSidebarBorder = true
+chartCategoricalColors = ["#0ea5e9", "#059669", "#fbbf24", "#ef4444", "#a855f7"]
+
+[theme.sidebar]
+backgroundColor = "#f0f0ec"
+secondaryBackgroundColor = "#ecebe3"
+headingFontSizes = ["1.6rem", "1.4rem", "1.2rem"]
+dataframeHeaderBackgroundColor = "#e4e4e0"
+baseRadius = "0.75rem"
