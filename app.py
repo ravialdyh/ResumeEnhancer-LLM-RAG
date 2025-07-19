@@ -1,4 +1,3 @@
-# app.py (enhanced with beautiful UI/UX and Anthropic-inspired theme integration)
 import streamlit as st
 import os
 import tempfile
@@ -62,19 +61,19 @@ st.markdown(
         z-index: 9999;
     }
     .github-icon a {
-        color: #3d3a2a; /* textColor from theme */
+        color: #3d3a2a;
         text-decoration: none;
         transition: color 0.2s;
     }
     .github-icon a:hover {
-        color: #cb785c; /* primaryColor from theme */
+        color: #cb785c;
     }
 
     /* --- Card-like Containers --- */
     [data-testid="stVerticalBlockBorderWrapper"] {
-        background: var(--secondary-background-color);
-        border: 1px solid var(--border-color);
-        border-radius: var(--baseRadius);
+        background: #f0f0ec;
+        border: 1px solid #d3d2ca;
+        border-radius: 0.75rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
         transition: box-shadow 0.3s ease-in-out;
         padding: 1.5rem;
@@ -85,7 +84,7 @@ st.markdown(
 
     /* --- Sidebar Styling --- */
     [data-testid="stSidebar"] {
-        border-right: 1px solid var(--border-color);
+        border-right: 1px solid #d3d2ca;
     }
 
     /* Make sidebar collapse/expand buttons more prominent and always visible like Anthropic design */
@@ -95,40 +94,57 @@ st.markdown(
         justify-content: center !important;
         width: 40px !important;
         height: 40px !important;
-        background-color: var(--secondary-background-color) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: var(--baseRadius) !important;
+        background-color: #ecebe3 !important;
+        border: 1px solid #d3d2ca !important;
+        border-radius: 0.75rem !important;
         position: fixed !important;
         top: 20px !important;
-        left: 10px !important; /* Slightly offset from edge for visibility */
+        left: 10px !important;
         z-index: 1000 !important;
         transition: all 0.2s ease !important;
         opacity: 1 !important;
         visibility: visible !important;
     }
     section[data-testid="collapsedControl"]:hover {
-        background-color: #cb785c !important; /* primaryColor */
+        background-color: #cb785c !important;
         border-color: #cb785c !important;
         color: white !important;
     }
     section[data-testid="collapsedControl"] button {
+        width: 100% !important;
+        height: 100% !important;
         padding: 0 !important;
         min-width: unset !important;
-        height: unset !important;
-        background: transparent !important;
+        min-height: unset !important;
     }
     section[data-testid="collapsedControl"] button:hover {
         background: transparent !important;
     }
+    /* Explicitly style the icon for visibility */
+    section[data-testid="collapsedControl"] button kbd {
+        font-size: 20px !important;
+        color: #3d3a2a !important;
+    }
+    section[data-testid="collapsedControl"]:hover button kbd {
+        color: white !important;
+    }
     /* Style the collapse button when expanded for consistency */
     [data-testid="stSidebarCollapseButton"] {
-        background-color: var(--secondary-background-color) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: var(--baseRadius) !important;
+        background-color: #ecebe3 !important;
+        border: 1px solid #d3d2ca !important;
+        border-radius: 0.75rem !important;
         transition: all 0.2s ease !important;
     }
     [data-testid="stSidebarCollapseButton"]:hover {
-        background-color: #cb785c !important; /* primaryColor */
+        background-color: #cb785c !important;
+        color: white !important;
+    }
+    /* Explicitly style the icon for visibility in expanded state */
+    [data-testid="stSidebarCollapseButton"] kbd {
+        font-size: 20px !important;
+        color: #3d3a2a !important;
+    }
+    [data-testid="stSidebarCollapseButton"]:hover kbd {
         color: white !important;
     }
 
@@ -146,7 +162,7 @@ st.markdown(
         border: 1px solid #d3d2ca;
     }
     .progress-pill.completed {
-        background-color: #a25f48; /* Darker shade of primaryColor for contrast */
+        background-color: #a25f48;
         color: white;
         border-color: #a25f48;
     }
@@ -169,13 +185,13 @@ st.markdown(
 
     /* --- File Uploader --- */
     [data-testid="stFileUploader"] section {
-        border: 2px dashed var(--border-color);
-        background-color: var(--background-color);
+        border: 2px dashed #d3d2ca;
+        background-color: #fdfdf8;
     }
 
     /* --- Text Area --- */
     .stTextArea textarea {
-        border: 1px solid var(--border-color);
+        border: 1px solid #d3d2ca;
     }
     </style>
     """,
@@ -196,9 +212,9 @@ def initialize_session_state():
             st.toast(f"Database connection failed: {str(e)}", icon="❌")
     
     for key in ['resume_text', 'job_description', 'analysis_results', 'optimized_resume', 
-                'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename']:
+                'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename', 'gemini_api_key']:
         if key not in st.session_state:
-            st.session_state[key] = "" if 'text' in key or 'resume' in key else None
+            st.session_state[key] = "" if 'text' in key or 'resume' in key or 'key' in key else None
             if key == 'improvements': st.session_state[key] = []
             if key == 'generation_successful': st.session_state[key] = False
 
@@ -365,16 +381,21 @@ def main():
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         if not gemini_api_key:
-            st.error("⚠️ GEMINI_API_KEY not found!")
-        elif not st.session_state.get('api_key_validated'):
+            gemini_api_key = st.text_input("Gemini API Key", type="password", value=st.session_state.get('gemini_api_key', ''))
+            st.session_state.gemini_api_key = gemini_api_key
+        if not gemini_api_key:
+            st.error("⚠️ GEMINI_API_KEY required!")
+            return
+        
+        if not st.session_state.get('api_key_validated'):
             with st.spinner("Validating API key..."):
                 try:
                     genai.configure(api_key=gemini_api_key)
                     next(genai.list_models())
                     st.session_state.api_key_validated = True
                     st.rerun()
-                except Exception:
-                    st.toast("🚫 Invalid Gemini API key.", icon="❌")
+                except Exception as e:
+                    st.toast(f"Invalid Gemini API key: {str(e)}", icon="❌")
                     st.session_state.api_key_validated = False
         
         if st.session_state.get('api_key_validated'):
