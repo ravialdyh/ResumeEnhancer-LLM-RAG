@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import sys
 import tempfile
 import json
 import uuid
@@ -67,6 +68,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+@st.cache_data
+def run_analysis(resume_text, job_description):
+    analyzer = ResumeAnalyzer()
+    return analyzer.analyze_resume(resume_text, job_description)
+
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -79,8 +85,22 @@ def initialize_session_state():
         except Exception as e:
             print(f"!!! FATAL: FAILED TO CREATE DATABASE SERVICE: {e}", file=sys.stderr, flush=True)
             st.toast(f"Database service failed: {str(e)}", icon="❌")
-            # Stop the app if the DB service fails to init
             st.stop()
+
+    if 'session_id' not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
+        try:
+            st.session_state.db_service.create_or_update_session(st.session_state.session_id)
+        except Exception as e:
+            st.toast(f"Database connection failed: {str(e)}", icon="❌")
+
+    # This is the part that was missing
+    for key in ['resume_text', 'job_description', 'analysis_results', 'optimized_resume', 
+                'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename', 'gemini_api_key']:
+        if key not in st.session_state:
+            st.session_state[key] = "" if 'text' in key or 'resume' in key or 'key' in key else None
+            if key == 'improvements': st.session_state[key] = []
+            if key == 'generation_successful': st.session_state[key] = False
 
 
 def populate_html_template(resume_data: dict) -> str:
@@ -341,10 +361,10 @@ def handle_upload_and_input():
     with col2:
         is_ready = bool(st.session_state.resume_text and st.session_state.job_description and st.session_state.get('api_key_validated'))
         if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
-            with st.spinner("Analyzing resume... This may take up to 1 - 5 minutes."):
+            with st.spinner("Analyzing resume... This may take up 1 - 3 minutes."):
                 try:
-                    analyzer = ResumeAnalyzer()
-                    results = analyzer.analyze_resume(st.session_state.resume_text, st.session_state.job_description)
+                    # Call the new cached function instead of the direct one
+                    results = run_analysis(st.session_state.resume_text, st.session_state.job_description)
                     st.session_state.analysis_results = results
                     analysis = st.session_state.db_service.save_analysis(
                         session_id=st.session_state.session_id,
