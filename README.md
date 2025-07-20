@@ -2,6 +2,10 @@
 
 Do you want to align your CV more with your dream job? Just upload your CV and dream job description then we will generate optimized resume for you! This repo leverages Google's Gemini AI model, Retrieval-Augmented Generation (RAG) techniques, and document parsing capabilities to provide intelligent resume analysis and optimization suggestions.
 
+![Resume Enhancer image 1](images/resume-enhancer-1.png)
+
+![Resume Enhancer image 2](images/resume-enhance-2.png)
+
 ## Tech Stack Overview
 
 | Category      | Technology / Service                                                                               | Purpose                                                                                                                                              |
