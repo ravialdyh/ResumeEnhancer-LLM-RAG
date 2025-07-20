@@ -33,25 +33,24 @@ st.markdown(
     /* This is the most reliable method to ensure fonts are loaded correctly. */
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
     
-    /* --- Hide Streamlit Header & Deploy Button --- */
-    [data-testid="stToolbar"] {
-        display: none;
-    }
-    [data-testid="stDeployButton"] {
+    /* --- Hide Unwanted Streamlit Elements --- */
+    /* This is the correct selector to hide the deploy and menu buttons */
+    /* without affecting the sidebar's expand/collapse functionality. */
+    [data-testid="stToolbarActions"] {
         display: none;
     }
     
     /* --- Progress Pills (custom element that needs styling) --- */
     .progress-pill {
-        background-color: #ecebe3; /* From theme */
-        color: #3d3a2a; /* From theme */
+        background-color: #f0f0ec; /* From theme secondaryBackgroundColor */
+        color: #3d3a2a; /* From theme textColor */
         border-radius: 9999px;
         padding: 0.5rem 1rem;
         margin-bottom: 0.5rem;
         font-weight: 500;
         display: flex;
         align-items: center;
-        border: 1px solid #d3d2ca; /* From theme */
+        border: 1px solid #d3d2ca; /* From theme borderColor */
     }
     .progress-pill.completed {
         background-color: #a25f48; /* A darker accent color */
@@ -61,6 +60,15 @@ st.markdown(
     .progress-pill .emoji {
         margin-right: 0.75rem;
         font-size: 1.1rem;
+    }
+
+    /* --- General UI Enhancements for Anthropic Theme --- */
+    .stApp {
+        background-color: #fdfdf8; /* From theme backgroundColor */
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
     }
     </style>
     """,
@@ -391,7 +399,7 @@ def _render_resume_uploader():
 
 def _render_jd_input():
     """Renders the job description input section."""
-    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=300, label_visibility="collapsed", placeholder="Paste the job description you are applying for...")
+    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=180, label_visibility="collapsed", placeholder="Paste the job description you are applying for...")
     if jd_text != st.session_state.job_description:
         st.session_state.job_description = jd_text
         st.rerun()
