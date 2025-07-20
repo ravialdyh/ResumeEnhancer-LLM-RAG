@@ -1,15 +1,11 @@
 # .streamlit/config.toml
 
 [server]
-# This is needed for the PDF generation to find local font files,
-# but is no longer used for the main Streamlit UI theme.
+enableCORS = false
+enableXsrfProtection = false
+headless = true
+runOnSave = false
 enableStaticServing = true
-
-
-# --- ANTHROPIC-INSPIRED THEME ---
-# The [[theme.fontFaces]] section has been REMOVED.
-# The app.py file now imports the fonts directly from Google's API.
-# Streamlit will use the font family names specified below.
 
 [theme]
 # Colors

@@ -1,0 +1,13 @@
+# Ignore the local environment file
+.env
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore macOS specific files
+.DS_Store
+
+# Ignore virtual environment folders
+.venv/
+resume-env/

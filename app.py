@@ -5,7 +5,6 @@ import json
 import uuid
 
 import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -19,7 +18,7 @@ from xhtml2pdf import pisa
 
 # --- Page Configuration (MUST be the first Streamlit command) ---
 st.set_page_config(
-    page_title="Resume Optimization Tool",
+    page_title="Align Your Resume Now!",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -32,13 +31,6 @@ st.markdown(
     /* --- FONT IMPORT (FROM GOOGLE FONTS API) --- */
     /* This is the most reliable method to ensure fonts are loaded correctly. */
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-    
-    /* --- Hide Unwanted Streamlit Elements --- */
-    /* This is the correct selector to hide the deploy and menu buttons */
-    /* without affecting the sidebar's expand/collapse functionality. */
-    [data-testid="stToolbarActions"] {
-        display: none;
-    }
     
     /* --- Progress Pills (custom element that needs styling) --- */
     .progress-pill {
@@ -78,22 +70,18 @@ st.markdown(
 
 def initialize_session_state():
     """Initialize session state variables"""
+    print("--- TRACE: Starting app initialization.", flush=True)
     if 'db_service' not in st.session_state:
-        st.session_state.db_service = DatabaseService()
-    
-    if 'session_id' not in st.session_state:
-        st.session_state.session_id = str(uuid.uuid4())
         try:
-            st.session_state.db_service.create_or_update_session(st.session_state.session_id)
+            print("--- TRACE: Creating DatabaseService object.", flush=True)
+            st.session_state.db_service = DatabaseService()
+            print("--- TRACE: DatabaseService object created successfully.", flush=True)
         except Exception as e:
-            st.toast(f"Database connection failed: {str(e)}", icon="❌")
-    
-    for key in ['resume_text', 'job_description', 'analysis_results', 'optimized_resume', 
-                'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename', 'gemini_api_key']:
-        if key not in st.session_state:
-            st.session_state[key] = "" if 'text' in key or 'resume' in key or 'key' in key else None
-            if key == 'improvements': st.session_state[key] = []
-            if key == 'generation_successful': st.session_state[key] = False
+            print(f"!!! FATAL: FAILED TO CREATE DATABASE SERVICE: {e}", file=sys.stderr, flush=True)
+            st.toast(f"Database service failed: {str(e)}", icon="❌")
+            # Stop the app if the DB service fails to init
+            st.stop()
+
 
 def populate_html_template(resume_data: dict) -> str:
     """
@@ -260,20 +248,21 @@ def main():
         
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         if not gemini_api_key:
-            gemini_api_key = st.text_input("Gemini API Key", type="password", value=st.session_state.get('gemini_api_key', ''))
-            st.session_state.gemini_api_key = gemini_api_key
-        if not gemini_api_key:
             st.error("⚠️ GEMINI_API_KEY required!")
             return
         
         if not st.session_state.get('api_key_validated'):
             with st.spinner("Validating API key..."):
                 try:
+                    print("--- TRACE: Attempting to configure Gemini API key.", flush=True)
                     genai.configure(api_key=gemini_api_key)
-                    next(genai.list_models())
+                    print("--- TRACE: Attempting to list models to validate key.", flush=True)
+                    next(genai.list_models()) # This makes the network call
+                    print("--- TRACE: Gemini API key validated successfully.", flush=True)
                     st.session_state.api_key_validated = True
-                    st.rerun()
+                    # Do NOT rerun here in App Runner, it can cause issues. Let the script flow.
                 except Exception as e:
+                    print(f"!!! FATAL: FAILED TO VALIDATE GEMINI KEY: {e}", file=sys.stderr, flush=True)
                     st.toast(f"Invalid Gemini API key: {str(e)}", icon="❌")
                     st.session_state.api_key_validated = False
         
@@ -322,8 +311,8 @@ def main():
             st.rerun()
 
     # --- Main Content ---
-    st.markdown('<h1><span style="margin-right: 0.75rem;">🚀</span>Resume Optimization Tool</h1>', unsafe_allow_html=True)
-    st.markdown("<h4>Enhance your resume with AI-powered analysis and targeted improvements.</h4>", unsafe_allow_html=True)
+    st.markdown('<h1><span style="margin-right: 0.75rem;">Align Your Resume Now</span>🚀</h1>', unsafe_allow_html=True)
+    st.markdown("<h4>Generate optimized resume given your existing CV and dream job description with AI</h4>", unsafe_allow_html=True)
     st.divider()
 
     if not st.session_state.analysis_results:
@@ -352,7 +341,7 @@ def handle_upload_and_input():
     with col2:
         is_ready = bool(st.session_state.resume_text and st.session_state.job_description and st.session_state.get('api_key_validated'))
         if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
-            with st.spinner("Analyzing resume... This may take up to a minute."):
+            with st.spinner("Analyzing resume... This may take up to 1 - 5 minutes."):
                 try:
                     analyzer = ResumeAnalyzer()
                     results = analyzer.analyze_resume(st.session_state.resume_text, st.session_state.job_description)
@@ -370,7 +359,7 @@ def handle_upload_and_input():
                 except Exception as e:
                     st.error(f"Analysis failed: {e}", icon="❌")
         if not is_ready:
-            st.caption("Please upload a resume, paste a job description, and ensure your API key is valid to proceed.")
+            st.caption("Please upload a resume and paste your dream job description.")
 
 def _render_resume_uploader():
     """Renders the resume upload section."""
@@ -455,7 +444,7 @@ def handle_analysis_display():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
-            with st.spinner("AI is crafting your new resume... This may take a moment."):
+            with st.spinner("AI is crafting your new resume... This may take 1 - 5 minutes."):
                 try:
                     analyzer = ResumeAnalyzer()
                     resume_structure = analyzer.parse_resume_to_structure(st.session_state.resume_text)

@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Core App
 streamlit>=1.47.0
 google-generativeai
@@ -16,6 +18,7 @@ numpy
 xhtml2pdf
 
 # RAG System
+torch
 sentence-transformers
 
 # For local environment variables
