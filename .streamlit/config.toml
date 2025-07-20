@@ -1,15 +1,15 @@
 # .streamlit/config.toml
 
 [server]
-# This is still needed for the PDF generation to find local font files,
-# but is no longer needed for the main Streamlit UI.
+# This is needed for the PDF generation to find local font files,
+# but is no longer used for the main Streamlit UI theme.
 enableStaticServing = true
 
 
 # --- ANTHROPIC-INSPIRED THEME ---
-# The [[theme.fontFaces]] section has been removed.
+# The [[theme.fontFaces]] section has been REMOVED.
 # The app.py file now imports the fonts directly from Google's API.
-# Streamlit will still use these font family names specified below.
+# Streamlit will use the font family names specified below.
 
 [theme]
 # Colors
@@ -26,8 +26,7 @@ baseRadius = "0.75rem"
 buttonRadius = "full" # This makes buttons pill-shaped
 
 # Typography
-# We still define the font family names here so Streamlit's theme engine
-# knows what to apply, even though the font files are loaded via CSS.
+# These font family names MUST EXACTLY MATCH the names provided by Google Fonts.
 font = "Space Grotesk"
 headingFontWeights = [700, 600, 600, 600, 600, 600]
 headingFontSizes = ["2.5rem", "2rem", "1.75rem", "1.5rem", "1.25rem", "1.1rem"]

@@ -5,6 +5,7 @@ import json
 import uuid
 
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -29,21 +30,9 @@ st.markdown(
     r"""
     <style>
     /* --- FONT IMPORT (FROM GOOGLE FONTS API) --- */
+    /* This is the most reliable method to ensure fonts are loaded correctly. */
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-    /* Import Material Symbols to ensure icons like the sidebar arrow render correctly */
-    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
-
-    /* --- Base Font Application --- */
-    html, body, [class*="st-"], [class*="css-"] {
-        font-family: 'Space Grotesk', sans-serif;
-    }
-    h1, h2, h3, h4, h5, h6 {
-        font-family: 'Space Grotesk', sans-serif;
-    }
-    code, .stCodeBlock, .stJson, pre {
-        font-family: 'Space Mono', monospace;
-    }
-
+    
     /* --- Hide Streamlit Header & Deploy Button --- */
     [data-testid="stToolbar"] {
         display: none;
@@ -52,159 +41,26 @@ st.markdown(
         display: none;
     }
     
-    /* --- Custom GitHub Icon --- */
-    .github-icon {
-        position: fixed;
-        top: 1rem;
-        right: 1.5rem;
-        z-index: 9999;
-    }
-    .github-icon a {
-        color: #3d3a2a;
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-    .github-icon a:hover {
-        color: #cb785c;
-    }
-
-    /* --- Card-like Containers --- */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background: #f0f0ec;
-        border: 1px solid #d3d2ca;
-        border-radius: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04);
-        transition: box-shadow 0.3s ease-in-out;
-        padding: 1.5rem;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05);
-    }
-
-    /* --- Sidebar Styling --- */
-    [data-testid="stSidebar"] {
-        border-right: 1px solid #d3d2ca;
-    }
-
-    /* --- CORRECTED & FUNCTIONAL: Custom Sidebar Toggle Button --- */
-    /* Common styles for both collapsed and expanded buttons */
-    [data-testid="stSidebarCollapseButton"],
-    section[data-testid="collapsedControl"] button {
-        background-color: #ecebe3 !important;
-        border: 1px solid #d3d2ca !important;
-        border-radius: 0.75rem !important;
-        width: 40px !important;
-        height: 40px !important;
-        transition: all 0.2s ease !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-    }
-
-    /* Hover state for both buttons */
-    [data-testid="stSidebarCollapseButton"]:hover,
-    section[data-testid="collapsedControl"] button:hover {
-        background-color: #cb785c !important;
-        border-color: #cb785c !important;
-    }
-
-    /* Position the floating button's container when sidebar is collapsed */
-    section[data-testid="collapsedControl"] {
-        position: fixed !important;
-        top: 20px !important;
-        left: 10px !important;
-        z-index: 1000 !important;
-        background-color: transparent !important; /* Container should be transparent */
-        border: none !important; /* Container should have no border */
-    }
-    
-    /* Hide the original content (SVG, <kbd> tag) inside the button */
-    [data-testid="stSidebarCollapseButton"] > *,
-    section[data-testid="collapsedControl"] button > * {
-        display: none !important;
-    }
-
-    /* Create the new icon using a pseudo-element */
-    [data-testid="stSidebarCollapseButton"]::before,
-    section[data-testid="collapsedControl"] button::before {
-        font-family: 'Material Symbols Outlined'; /* Use the imported font */
-        font-weight: normal;
-        font-style: normal;
-        font-size: 24px;
-        line-height: 1;
-        letter-spacing: normal;
-        text-transform: none;
-        display: inline-block;
-        white-space: nowrap;
-        word-wrap: normal;
-        direction: ltr;
-        -webkit-font-feature-settings: 'liga';
-        -webkit-font-smoothing: antialiased;
-        color: #3d3a2a;
-        transition: color 0.2s ease;
-        pointer-events: none; /* THE FIX: Allows clicks to pass through to the button */
-    }
-
-    /* Change icon color on hover */
-    [data-testid="stSidebarCollapseButton"]:hover::before,
-    section[data-testid="collapsedControl"] button:hover::before {
-        color: white;
-    }
-
-    /* Set the specific icon for each state */
-    [data-testid="stSidebarCollapseButton"]::before {
-        content: "chevron_left"; /* Material Symbol name for the collapse arrow */
-    }
-
-    section[data-testid="collapsedControl"] button::before {
-        content: "chevron_right"; /* Material Symbol name for the expand arrow */
-    }
-    /* --- END OF SIDEBAR BUTTON CORRECTION --- */
-
-    /* --- Sidebar Progress Indicator (with better contrast) --- */
+    /* --- Progress Pills (custom element that needs styling) --- */
     .progress-pill {
-        background-color: #ecebe3;
-        color: #3d3a2a;
+        background-color: #ecebe3; /* From theme */
+        color: #3d3a2a; /* From theme */
         border-radius: 9999px;
         padding: 0.5rem 1rem;
         margin-bottom: 0.5rem;
         font-weight: 500;
         display: flex;
         align-items: center;
-        transition: background-color 0.3s, color 0.3s;
-        border: 1px solid #d3d2ca;
+        border: 1px solid #d3d2ca; /* From theme */
     }
     .progress-pill.completed {
-        background-color: #a25f48;
+        background-color: #a25f48; /* A darker accent color */
         color: white;
         border-color: #a25f48;
     }
     .progress-pill .emoji {
         margin-right: 0.75rem;
         font-size: 1.1rem;
-    }
-
-    /* --- Button Styling --- */
-    .stButton > button {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-    }
-    .stButton > button:active {
-        transform: translateY(0px);
-    }
-
-    /* --- File Uploader --- */
-    [data-testid="stFileUploader"] section {
-        border: 2px dashed #d3d2ca;
-        background-color: #fdfdf8;
-    }
-
-    /* --- Text Area --- */
-    .stTextArea textarea {
-        border: 1px solid #d3d2ca;
     }
     </style>
     """,
@@ -234,6 +90,8 @@ def initialize_session_state():
 def populate_html_template(resume_data: dict) -> str:
     """
     Populates the HTML template for PDF generation.
+    This function contains its own CSS for the PDF output, which is separate
+    from the Streamlit app's UI theme.
     """
     def build_experience_html(experiences):
         html = ""
@@ -456,19 +314,6 @@ def main():
             st.rerun()
 
     # --- Main Content ---
-    st.markdown(
-        """
-        <div class="github-icon">
-            <a href="https://github.com/ravialdyh/ResumeEnhancer-LLM-RAG" target="_blank" title="View on GitHub">
-                <svg height="32" aria-hidden="true" viewBox="0 0 16 16" version="1.1" width="32" data-view-component="true">
-                    <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.19.01-.82.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21-.15.46-.55.38A8.013 8.013 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
-                </svg>
-            </a>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
     st.markdown('<h1><span style="margin-right: 0.75rem;">🚀</span>Resume Optimization Tool</h1>', unsafe_allow_html=True)
     st.markdown("<h4>Enhance your resume with AI-powered analysis and targeted improvements.</h4>", unsafe_allow_html=True)
     st.divider()
