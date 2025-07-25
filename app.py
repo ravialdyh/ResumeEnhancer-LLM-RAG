@@ -17,7 +17,6 @@ from database.service import DatabaseService
 from io import BytesIO
 from xhtml2pdf import pisa
 
-# --- Page Configuration (MUST be the first Streamlit command) ---
 st.set_page_config(
     page_title="Align Your Resume Now!",
     page_icon="🚀",
@@ -25,28 +24,26 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS for Final UI Polish ---
 st.markdown(
     r"""
     <style>
     /* --- FONT IMPORT (FROM GOOGLE FONTS API) --- */
-    /* This is the most reliable method to ensure fonts are loaded correctly. */
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
     
     /* --- Progress Pills (custom element that needs styling) --- */
     .progress-pill {
-        background-color: #f0f0ec; /* From theme secondaryBackgroundColor */
-        color: #3d3a2a; /* From theme textColor */
+        background-color: #f0f0ec;
+        color: #3d3a2a;
         border-radius: 9999px;
         padding: 0.5rem 1rem;
         margin-bottom: 0.5rem;
         font-weight: 500;
         display: flex;
         align-items: center;
-        border: 1px solid #d3d2ca; /* From theme borderColor */
+        border: 1px solid #d3d2ca;
     }
     .progress-pill.completed {
-        background-color: #a25f48; /* A darker accent color */
+        background-color: #a25f48;
         color: white;
         border-color: #a25f48;
     }
@@ -55,9 +52,8 @@ st.markdown(
         font-size: 1.1rem;
     }
 
-    /* --- General UI Enhancements for Anthropic Theme --- */
     .stApp {
-        background-color: #fdfdf8; /* From theme backgroundColor */
+        background-color: #fdfdf8;
     }
 
     h1, h2, h3, h4, h5, h6 {
@@ -68,7 +64,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def run_analysis(resume_text, job_description):
     analyzer = ResumeAnalyzer()
     return analyzer.analyze_resume(resume_text, job_description)

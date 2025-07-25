@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import logging
 
@@ -13,7 +12,7 @@ except ImportError:
     pdfplumber = None
 
 try:
-    import fitz  # PyMuPDF
+    import fitz  
 except ImportError:
     fitz = None
 
@@ -57,7 +56,7 @@ class DocumentParser:
         text = ""
         errors = []
         
-        # Try PyMuPDF first (best for complex PDFs)
+        
         if fitz:
             try:
                 doc = fitz.open(file_path)
@@ -76,10 +75,10 @@ class DocumentParser:
                 self.logger.warning(error_msg)
                 errors.append(error_msg)
         
-        # Try pdfplumber second (good text extraction)
+        
         if pdfplumber:
             try:
-                text = ""  # Reset text
+                text = ""  
                 with pdfplumber.open(file_path) as pdf:
                     for page in pdf.pages:
                         page_text = page.extract_text()
@@ -94,10 +93,10 @@ class DocumentParser:
                 self.logger.warning(error_msg)
                 errors.append(error_msg)
         
-        # Fallback to PyPDF2
+        
         if PyPDF2:
             try:
-                text = ""  # Reset text
+                text = ""  
                 with open(file_path, 'rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
                     for page in pdf_reader.pages:
@@ -113,7 +112,7 @@ class DocumentParser:
                 self.logger.error(error_msg)
                 errors.append(error_msg)
         
-        # If all methods failed, provide detailed error message
+        
         if not text.strip():
             error_details = " | ".join(errors) if errors else "No PDF parsing libraries available"
             raise ValueError(f"Could not extract text from PDF. This might be a scanned document, image-based PDF, or have complex formatting. Errors: {error_details}")
@@ -129,12 +128,12 @@ class DocumentParser:
             doc = Document(file_path)
             text = ""
             
-            # Extract text from paragraphs
+            
             for paragraph in doc.paragraphs:
                 if paragraph.text.strip():
                     text += paragraph.text + "\n"
             
-            # Extract text from tables
+            
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:

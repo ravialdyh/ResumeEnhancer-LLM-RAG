@@ -22,11 +22,11 @@ class ResumeAnalyzer:
             raise ValueError("GEMINI_API_KEY environment variable is required")
         
         genai.configure(api_key=api_key)
-        # Use the updated model as per 2025 availability
-        self.model = genai.GenerativeModel('gemini-2.5-flash') 
+        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
         self.rag_system = RAGSystem()
         self.text_processor = TextProcessor()
-        self.parsing_index_built = False  # Flag to build parsing index once
+        self.parsing_index_built = False
+
 
     def analyze_resume(self, resume_text: str, job_description: str) -> Dict[str, Any]:
         """
@@ -165,7 +165,7 @@ class ResumeAnalyzer:
     def _identify_optimizable_sections(self, resume_structure: Dict[str, Any]) -> List[str]:
         """
         Makes one preliminary API call to ask the AI which sections are suitable for rewriting.
-        This is the core of the new intelligent approach.
+        This remains unchanged but is crucial for the new batching logic.
         """
         section_previews = {}
         for section, data in resume_structure.items():
@@ -181,13 +181,12 @@ class ResumeAnalyzer:
             section_previews[section] = preview.strip()
 
         prompt = f"""
-            You are a system configuration API. Your task is to analyze the structure of a resume and decide which sections should be sent for content optimization.
+            You are a system configuration API. 
+            Your task is to analyze the structure of a resume and decide which sections should be sent for content optimization.
             Based on the following section names and content previews, identify which sections contain descriptive, free-form text (like summaries or bullet points) that would benefit from being rewritten.
-
             **Rules:**
             - **INCLUDE** sections with descriptive paragraphs or bullet points (e.g., Summary, Experience, Projects, Achievements, Volunteering).
             - **EXCLUDE** sections that are just lists of keywords (like a simple 'Skills' list), contact information, or raw data that should not be changed.
-
             **Resume Structure Preview:**
             ```json
             {json.dumps(section_previews, indent=2)}
@@ -206,60 +205,78 @@ class ResumeAnalyzer:
         except Exception as e:
             self.logger.error(f"Failed to identify optimizable sections: {e}. Returning empty list.")
             return []
+        
+    def _build_batch_optimization_prompt(self, data_to_optimize: Dict[str, Any], job_description: str) -> str:
+        """
+        Builds a single prompt to optimize a batch of resume sections.
+        """
+        return f"""You are an expert resume writer. Rewrite the content in the following JSON object to be more impactful and aligned with the provided job description.
+
+            - Use strong action verbs and quantify results where possible.
+            - Do not change factual information like company names or dates.
+            - Your response MUST be a single, valid JSON object with the exact same structure as the input, containing all the rewritten sections.
+
+            **Job Description:**
+            ```
+            {job_description}
+            ```
+
+            **Original Resume Sections to Optimize:**
+            ```json
+            {json.dumps(data_to_optimize, indent=2)}
+            ```
+            """
+
 
     def generate_optimized_resume(self, resume_structure: Dict[str, Any], job_description: str) -> Dict[str, Any]:
         """
         Generates an optimized resume by dynamically identifying and then optimizing all
-        relevant sections found in the resume.
+        relevant sections in a single batch API call.
         """
         optimized_structure = json.loads(json.dumps(resume_structure)) # Deep copy
-        
-        # --- Step 1: Ask the AI which sections to optimize ---
+
+        # Step 1: Ask the AI which sections to optimize. This is the first API call.
         sections_to_optimize = self._identify_optimizable_sections(resume_structure)
+        
+        if not sections_to_optimize:
+            self.logger.info("No sections identified for optimization. Returning original structure.")
+            return optimized_structure
 
-        # --- Step 2: Dynamically loop through the sections the AI chose ---
-        for section_name in sections_to_optimize:
-            section_data = resume_structure.get(section_name)
-            if not section_data:
-                continue
+        # Step 2: Create a focused dictionary containing only the data to be rewritten.
+        data_to_optimize = {
+            section: resume_structure[section] 
+            for section in sections_to_optimize 
+            if section in resume_structure
+        }
+
+        if not data_to_optimize:
+            return optimized_structure
+
+        # Step 3: Build a single prompt for the batch job.
+        prompt = self._build_batch_optimization_prompt(data_to_optimize, job_description)
+        
+        # Step 4: Execute the batch optimization in a single API call.
+        self.logger.info(f"Optimizing sections in a single batch: {list(data_to_optimize.keys())}")
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(response_mime_type="application/json")
+            )
+            optimized_sections = json.loads(response.text)
             
-            self.logger.info(f"Optimizing section: {section_name}")
-            prompt = self._build_section_optimization_prompt(section_data, job_description, section_name)
+            # Step 5: Update the main structure with the new, optimized content.
+            for section_name, optimized_content in optimized_sections.items():
+                if section_name in optimized_structure:
+                    optimized_structure[section_name] = optimized_content
             
-            try:
-                # Structured sections expect a JSON response.
-                if isinstance(section_data, (dict, list)):
-                    response = self.model.generate_content(
-                        prompt,
-                        generation_config=genai.GenerationConfig(response_mime_type="application/json")
-                    )
-                    optimized_structure[section_name] = json.loads(response.text)
-                # Simple text sections expect a plain text response.
-                else:
-                    response = self.model.generate_content(prompt)
-                    optimized_structure[section_name] = response.text.strip()
-            except Exception as e:
-                self.logger.error(f"Could not optimize section '{section_name}': {e}. Keeping original content.")
-                optimized_structure[section_name] = section_data # Keep original on error
-                
+            self.logger.info("Successfully optimized resume using single batch API call.")
+
+        except Exception as e:
+            # If the batch call fails, log the error and return the original structure.
+            self.logger.error(f"Batch optimization API call failed: {e}. Keeping original content.")
+
         return optimized_structure
-
-    def _build_section_optimization_prompt(self, section_data: Any, job_description: str, section_name: str) -> str:
-        """Builds a prompt to optimize an entire section of the resume."""
-        if isinstance(section_data, (dict, list)):
-            data_format_instruction = f"Original JSON for the '{section_name}' section:\n```json\n{json.dumps(section_data, indent=2)}\n```\n\nCRITICAL: Your response MUST be ONLY the modified JSON object for this section, with the exact same structure. Do not add any other text."
-        else:
-            data_format_instruction = f"Original Text for the '{section_name}':\n{section_data}\n\nCRITICAL: Respond with ONLY the rewritten text, and nothing else."
-        
-        return f"""
-        You are an expert resume writer. Rewrite the user-facing text within the following resume section to be more impactful and aligned with the provided job description.
-        Use strong action verbs and quantify results where possible. Do not change factual information like company names or dates.
-        
-        Job Description:
-        {job_description}
-        
-        {data_format_instruction}
-        """
+    
 
     def _build_analysis_prompt(self, resume_text: str, job_description: str, context: str) -> str:
         """Builds the prompt for the initial analysis. (Unchanged)"""

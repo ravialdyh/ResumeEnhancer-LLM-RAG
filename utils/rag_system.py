@@ -1,7 +1,5 @@
-import os
 import logging
 from typing import List, Dict, Any
-import numpy as np
 
 try:
     import faiss
@@ -22,7 +20,7 @@ class RAGSystem:
         self.logger = logging.getLogger(__name__)
         self.text_processor = TextProcessor()
         
-        # Initialize embedding model
+        
         if SentenceTransformer:
             try:
                 self.embedding_model = SentenceTransformer(model_name)
@@ -30,14 +28,14 @@ class RAGSystem:
             except Exception as e:
                 self.logger.warning(f"Failed to load SentenceTransformer: {e}")
                 self.embedding_model = None
-                self.embedding_dim = 384  # Default dimension
+                self.embedding_dim = 384  
         else:
             self.embedding_model = None
             self.embedding_dim = 384
         
-        # Initialize FAISS index
+        
         if faiss and self.embedding_model:
-            self.index = faiss.IndexFlatIP(self.embedding_dim)  # Inner product for similarity
+            self.index = faiss.IndexFlatIP(self.embedding_dim)  
             self.document_chunks = []
             self.chunk_metadata = []
         else:
@@ -59,7 +57,7 @@ class RAGSystem:
             return
         
         try:
-            # Process documents into chunks
+            
             all_chunks = []
             all_metadata = []
             
@@ -80,13 +78,13 @@ class RAGSystem:
             if not all_chunks:
                 return
             
-            # Generate embeddings
+            
             embeddings = self.embedding_model.encode(all_chunks, convert_to_numpy=True)
             
-            # Normalize embeddings for cosine similarity
+            
             faiss.normalize_L2(embeddings)
             
-            # Add to FAISS index
+            
             self.index.add(embeddings)
             self.document_chunks.extend(all_chunks)
             self.chunk_metadata.extend(all_metadata)
@@ -113,11 +111,11 @@ class RAGSystem:
             return []
         
         try:
-            # Generate query embedding
+            
             query_embedding = self.embedding_model.encode([query], convert_to_numpy=True)
             faiss.normalize_L2(query_embedding)
             
-            # Search in FAISS index
+            
             scores, indices = self.index.search(query_embedding, min(top_k, self.index.ntotal))
             
             results = []
@@ -153,7 +151,7 @@ class RAGSystem:
         if not search_results:
             return ""
         
-        # Concatenate relevant chunks
+        
         context_parts = []
         current_length = 0
         
@@ -163,9 +161,9 @@ class RAGSystem:
                 context_parts.append(text)
                 current_length += len(text)
             else:
-                # Add partial text if it fits
+                
                 remaining_space = max_context_length - current_length
-                if remaining_space > 100:  # Only add if meaningful amount of space left
+                if remaining_space > 100:  
                     context_parts.append(text[:remaining_space] + "...")
                 break
         
@@ -178,10 +176,10 @@ class RAGSystem:
         Args:
             job_description (str): Job description text
         """
-        # Extract key sections from job description
+        
         sections = self.text_processor.extract_job_sections(job_description)
         
-        # Add sections as separate documents
+        
         documents = []
         metadata = []
         
@@ -194,7 +192,7 @@ class RAGSystem:
                     'source': 'job_description'
                 })
         
-        # Also add the full job description
+        
         documents.append(job_description)
         metadata.append({
             'type': 'job_description',
