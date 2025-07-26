@@ -2,36 +2,90 @@
 import os
 import json
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
-import google.generativeai as genai
+import google.genai as genai
+from pydantic import BaseModel, Field, create_model
 
 from utils.rag_system import RAGSystem
 from utils.text_processor import TextProcessor
 
-class ResumeAnalyzer:
-    """
-    AI-powered resume analyzer that uses a dynamic, two-stage optimization process.
-    """
+class ContactInfo(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    linkedin: Optional[str] = None
+    other_links: Optional[str] = None
 
+class ExperienceTask(BaseModel):
+    bullets: List[str] = Field(default_factory=list)
+    tools: Optional[str] = None
+
+class ExperienceEntry(BaseModel):
+    company: Optional[str] = None
+    location: Optional[str] = None
+    position: Optional[str] = None
+    dates: Optional[str] = None
+    tasks: List[ExperienceTask] = Field(default_factory=list)
+    additional: Optional[str] = None
+
+class Achievement(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+class Project(BaseModel):
+    name: Optional[str] = None
+    link: Optional[str] = None
+    bullets: List[str] = Field(default_factory=list)
+    tools: Optional[str] = None
+    
+class Education(BaseModel):
+    institution: Optional[str] = None
+    dates: Optional[str] = None
+    details: Optional[str] = None
+
+class Volunteering(BaseModel):
+    organization: Optional[str] = None
+    position: Optional[str] = None
+    dates: Optional[str] = None
+    bullets: List[str] = Field(default_factory=list)
+
+class Skills(BaseModel):
+    technical: Optional[str] = None
+    interests: Optional[str] = None
+
+class ParsedResume(BaseModel):
+    contact_info: Optional[ContactInfo] = None
+    summary: Optional[str] = None
+    experience: List[ExperienceEntry] = Field(default_factory=list)
+    achievements: List[Achievement] = Field(default_factory=list)
+    projects: List[Project] = Field(default_factory=list)
+    education: List[Education] = Field(default_factory=list)
+    volunteering: List[Volunteering] = Field(default_factory=list)
+    certifications: List[str] = Field(default_factory=list)
+    skills: Optional[Skills] = None
+    optimizable_sections: List[str] = Field(
+        default_factory=list,
+        description="A list of section names (e.g., 'summary', 'experience') that contain descriptive text suitable for rewriting."
+    )
+
+class ResumeAnalyzer:
     def __init__(self):
-        """Initializes the analyzer, Gemini model, and other utilities."""
         self.logger = logging.getLogger(__name__)
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.5-flash-lite')
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = 'gemini-2.5-flash-lite'
+        
         self.rag_system = RAGSystem()
         self.text_processor = TextProcessor()
-        self.parsing_index_built = False
 
 
     def analyze_resume(self, resume_text: str, job_description: str) -> Dict[str, Any]:
         """
         Performs the initial analysis of the resume against the job description using RAG.
-        This remains unchanged to preserve the original analysis functionality.
         """
         try:
             self.rag_system.clear_index()
@@ -39,12 +93,13 @@ class ResumeAnalyzer:
             context = self.rag_system.get_context_for_query(resume_text, max_context_length=1500)
             analysis_prompt = self._build_analysis_prompt(resume_text, job_description, context)
             
-            response = self.model.generate_content(
-                analysis_prompt,
-                generation_config=genai.GenerationConfig(
-                    response_mime_type="application/json",
-                    temperature=0.3
-                )
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=analysis_prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.3
+                }
             )
             
             if not response.text:
@@ -95,72 +150,36 @@ class ResumeAnalyzer:
         self.parsing_index_built = True
         self.logger.info("Built RAG index for resume parsing with standard examples.")
 
-    def parse_resume_to_structure(self, resume_text: str) -> Dict[str, Any]:
+    def parse_resume_to_structure(self, resume_text: str) -> Optional[ParsedResume]:
         """
-        Uses AI to parse the resume text into a standardized structured dictionary.
-        Now augmented with RAG for better accuracy on edge cases.
+        Parses resume text and identifies optimizable sections in a single API call
+        using a Pydantic model for structured output.
         """
-        if not self.parsing_index_built:
-            self._build_parsing_rag_index()
-        
-        # Retrieve relevant standard examples as context
-        query = f"Standard resume sections matching this content: {resume_text[:500]}"  # Truncate query for efficiency
-        context = self.rag_system.get_context_for_query(query, max_context_length=1500)
-        
         prompt = f"""
-        You are a resume parsing expert. Extract the information from the following resume text into the specified JSON structure.
-        Use the provided context of standard resume section examples to guide mapping and normalization (e.g., map 'Volunteer' or 'Community Service' to 'volunteering').
-        Do not add any information that is not present in the resume. If a section is missing, omit it or use empty list/string/object.
-        For skills, group into technical (comma-separated tools/languages) and interests (comma-separated topics) if possible.
-        For experience, group bullets into tasks if they have associated tools or seem grouped; otherwise, use one task with all bullets.
-
-        **Standard Examples Context for Guidance:**
-        {context}
-
-        JSON Schema:
-        {{
-          "contact_info": {{"name": "str", "email": "str", "phone": "str", "linkedin": "str", "other_links": "str"}},
-          "summary": "str",
-          "experience": [
-            {{"company": "str", "location": "str", "position": "str", "dates": "str",
-              "tasks": [
-                {{"bullets": ["str"], "tools": "str"}}
-              ],
-              "additional": "str"
-            }}
-          ],
-          "achievements": [
-            {{"title": "str", "description": "str"}}
-          ],
-          "projects": [
-            {{"name": "str", "link": "str", "bullets": ["str"], "tools": "str"}}
-          ],
-          "education": [
-            {{"institution": "str", "dates": "str", "details": "str"}}
-          ],
-          "volunteering": [
-            {{"organization": "str", "position": "str", "dates": "str", "bullets": ["str"]}}
-          ],
-          "certifications": ["str"],
-          "skills": {{"technical": "str", "interests": "str"}}
-        }}
+        You are a resume parsing expert. Extract information from the following resume text.
+        
+        Also, identify which sections contain descriptive, free-form text (like summaries or bullet points)
+        that would benefit from being rewritten and list their names in the 'optimizable_sections' field.
+        
+        - INCLUDE descriptive sections like: summary, experience, projects, achievements, volunteering.
+        - EXCLUDE factual lists like: skills, certifications, contact_info.
 
         Resume Text:
         {resume_text}
-
-        Respond with ONLY the valid JSON object.
         """
         try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(response_mime_type="application/json")
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": ParsedResume,
+                }
             )
-            parsed_structure = json.loads(response.text)
-            self.logger.info("Successfully parsed resume to structured dict with RAG assistance")
-            return parsed_structure
+            return response.parsed
         except Exception as e:
-            self.logger.error(f"Failed to parse resume structure: {e}")
-            raise
+            self.logger.error(f"Failed to parse resume with structured output: {e}")
+            return None
 
     def _identify_optimizable_sections(self, resume_structure: Dict[str, Any]) -> List[str]:
         """
@@ -228,55 +247,76 @@ class ResumeAnalyzer:
             """
 
 
-    def generate_optimized_resume(self, resume_structure: Dict[str, Any], job_description: str) -> Dict[str, Any]:
+    def generate_optimized_resume(self, resume_structure: Dict[str, Any], job_description: str, sections_to_optimize: List[str]) -> Dict[str, Any]:
         """
-        Generates an optimized resume by dynamically identifying and then optimizing all
-        relevant sections in a single batch API call.
+        Generates an optimized resume using a single, dynamically-structured batch API call.
         """
-        optimized_structure = json.loads(json.dumps(resume_structure)) # Deep copy
+        optimized_structure = json.loads(json.dumps(resume_structure))
 
-        # Step 1: Ask the AI which sections to optimize. This is the first API call.
-        sections_to_optimize = self._identify_optimizable_sections(resume_structure)
-        
         if not sections_to_optimize:
-            self.logger.info("No sections identified for optimization. Returning original structure.")
+            self.logger.info("No sections identified for optimization.")
             return optimized_structure
 
-        # Step 2: Create a focused dictionary containing only the data to be rewritten.
-        data_to_optimize = {
-            section: resume_structure[section] 
-            for section in sections_to_optimize 
-            if section in resume_structure
+        # 1. Define all possible Pydantic models for the schemas
+        master_schema_definitions = {
+            "summary": str,
+            "experience": List[ExperienceEntry],
+            "projects": List[Project],
+            "achievements": List[Achievement],
+            "volunteering": List[Volunteering]
         }
+
+        # 2. Dynamically build the schema and data for the specific sections to optimize
+        dynamic_schema_fields = {}
+        data_to_optimize = {}
+        for section in sections_to_optimize:
+            if section in resume_structure and section in master_schema_definitions:
+                data_to_optimize[section] = resume_structure[section]
+                dynamic_schema_fields[section] = (master_schema_definitions[section], ...)
 
         if not data_to_optimize:
             return optimized_structure
-
-        # Step 3: Build a single prompt for the batch job.
-        prompt = self._build_batch_optimization_prompt(data_to_optimize, job_description)
         
-        # Step 4: Execute the batch optimization in a single API call.
-        self.logger.info(f"Optimizing sections in a single batch: {list(data_to_optimize.keys())}")
+        # 3. Create a dynamic Pydantic model for the batch response
+        DynamicBatchModel = create_model('DynamicBatchModel', **dynamic_schema_fields)
+
+        # 4. Build the simplified batch prompt
+        batch_prompt = f"""
+        You are an expert resume writer. Rewrite the content in the following JSON object to be more impactful and aligned with the provided job description.
+        Use strong action verbs and quantify results where possible.
+
+        **Job Description:**
+        {job_description}
+
+        **Original Resume Sections to Optimize:**
+        ```json
+        {json.dumps(data_to_optimize, indent=2)}
+        ```
+        """
+        
+        # 5. Execute the single, reliable batch call
         try:
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(response_mime_type="application/json")
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=batch_prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": DynamicBatchModel,
+                },
             )
-            optimized_sections = json.loads(response.text)
-            
-            # Step 5: Update the main structure with the new, optimized content.
-            for section_name, optimized_content in optimized_sections.items():
-                if section_name in optimized_structure:
+
+            # 6. Update the main structure with the results
+            optimized_sections_model = response.parsed
+            if optimized_sections_model:
+                optimized_sections = optimized_sections_model.model_dump()
+                for section_name, optimized_content in optimized_sections.items():
                     optimized_structure[section_name] = optimized_content
-            
-            self.logger.info("Successfully optimized resume using single batch API call.")
+                self.logger.info(f"Successfully optimized sections via batch: {list(optimized_sections.keys())}")
 
         except Exception as e:
-            # If the batch call fails, log the error and return the original structure.
-            self.logger.error(f"Batch optimization API call failed: {e}. Keeping original content.")
+            self.logger.error(f"Batch optimization with schema failed: {e}. Keeping original content.")
 
-        return optimized_structure
-    
+        return optimized_structure    
 
     def _build_analysis_prompt(self, resume_text: str, job_description: str, context: str) -> str:
         """Builds the prompt for the initial analysis. (Unchanged)"""

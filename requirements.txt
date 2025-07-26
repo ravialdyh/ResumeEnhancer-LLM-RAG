@@ -2,7 +2,8 @@
 
 # Core App
 streamlit>=1.47.0
-google-generativeai
+google-genai
+pydantic
 
 # Database
 sqlalchemy

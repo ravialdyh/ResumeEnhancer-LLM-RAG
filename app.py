@@ -463,17 +463,32 @@ def handle_analysis_display():
             with st.spinner("AI is crafting your new resume... This may take 1 - 5 minutes."):
                 try:
                     analyzer = ResumeAnalyzer()
-                    resume_structure = analyzer.parse_resume_to_structure(st.session_state.resume_text)
-                    optimized_structure = analyzer.generate_optimized_resume(resume_structure, st.session_state.job_description)
-                    st.session_state.optimized_resume = optimized_structure
-                    st.session_state.generation_successful = True
-                    if st.session_state.current_analysis_id:
-                        st.session_state.db_service.update_optimized_resume(
-                            st.session_state.current_analysis_id,
-                            json.dumps(optimized_structure)
+                    parsed_resume = analyzer.parse_resume_to_structure(st.session_state.resume_text)
+                    
+                    if parsed_resume:
+                        # Convert Pydantic model to dict for processing
+                        resume_structure = parsed_resume.model_dump()
+                        sections_to_optimize = parsed_resume.optimizable_sections
+                        
+                        # 2. Run batch optimization
+                        optimized_structure = analyzer.generate_optimized_resume(
+                            resume_structure, 
+                            st.session_state.job_description,
+                            sections_to_optimize
                         )
-                    st.toast("Resume generated successfully!", icon="🎉")
-                    st.rerun()
+                        st.session_state.optimized_resume = optimized_structure
+                        st.session_state.generation_successful = True
+
+                        if st.session_state.current_analysis_id:
+                            st.session_state.db_service.update_optimized_resume(
+                                st.session_state.current_analysis_id,
+                                json.dumps(optimized_structure)
+                            )
+                        st.toast("Resume generated successfully!", icon="🎉")
+                        st.rerun()
+                    else:
+                        st.error("Failed to parse the resume into a structured format.", icon="❌")
+
                 except Exception as e:
                     st.error(f"Failed to generate optimized resume: {e}", icon="❌")
 
