@@ -4,12 +4,12 @@ from typing import List, Dict, Any
 try:
     import faiss
 except ImportError:
-    faiss = None
+    raise ImportError("FAISS is not installed. Please install it with 'pip install faiss-cpu'.")
 
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:
-    SentenceTransformer = None
+    raise ImportError("SentenceTransformer is not installed. Please install it with 'pip install sentence-transformers'.")
 
 from utils.text_processor import TextProcessor
 

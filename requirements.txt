@@ -10,16 +10,12 @@ sqlalchemy
 psycopg2-binary
 
 # Document & Text Processing
-pypdf2
-fpdf
-pdfplumber
-pymupdf
-python-docx
 numpy
 xhtml2pdf
 
 # RAG System
 torch
+faiss-cpu
 sentence-transformers
 
 # For local environment variables

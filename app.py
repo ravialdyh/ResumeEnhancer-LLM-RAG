@@ -1,16 +1,14 @@
 import streamlit as st
 import os
 import sys
-import tempfile
 import json
 import uuid
 
-import google.generativeai as genai
+from google import genai
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from utils.document_parser import DocumentParser
 from utils.resume_analyzer import ResumeAnalyzer
 from database.service import DatabaseService
 
@@ -65,21 +63,29 @@ st.markdown(
 )
 
 @st.cache_data(show_spinner=False)
-def run_analysis(resume_text, job_description):
-    analyzer = ResumeAnalyzer()
-    return analyzer.analyze_resume(resume_text, job_description)
-
+def run_analysis(_client, resume_bytes, resume_mime_type, job_description):
+    # Pass the client to the analyzer
+    analyzer = ResumeAnalyzer(client=_client)
+    return analyzer.analyze_resume(resume_bytes, resume_mime_type, job_description)
 
 def initialize_session_state():
-    """Initialize session state variables"""
-    print("--- TRACE: Starting app initialization.", flush=True)
+    """Initialize session state variables, including the Gemini client."""
+    if 'gemini_client' not in st.session_state:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            try:
+                print("--- TRACE: Creating Gemini Client object.", flush=True)
+                st.session_state.gemini_client = genai.Client(api_key=api_key)
+            except Exception as e:
+                st.session_state.gemini_client = None
+                print(f"!!! FATAL: FAILED TO CREATE GEMINI CLIENT: {e}", file=sys.stderr, flush=True)
+        else:
+            st.session_state.gemini_client = None
+
     if 'db_service' not in st.session_state:
         try:
-            print("--- TRACE: Creating DatabaseService object.", flush=True)
             st.session_state.db_service = DatabaseService()
-            print("--- TRACE: DatabaseService object created successfully.", flush=True)
         except Exception as e:
-            print(f"!!! FATAL: FAILED TO CREATE DATABASE SERVICE: {e}", file=sys.stderr, flush=True)
             st.toast(f"Database service failed: {str(e)}", icon="❌")
             st.stop()
 
@@ -90,13 +96,16 @@ def initialize_session_state():
         except Exception as e:
             st.toast(f"Database connection failed: {str(e)}", icon="❌")
 
-    # This is the part that was missing
-    for key in ['resume_text', 'job_description', 'analysis_results', 'optimized_resume', 
-                'improvements', 'current_analysis_id', 'generation_successful', 'uploaded_filename', 'gemini_api_key']:
+    for key in ['resume_bytes', 'resume_mime_type', 'job_description', 'analysis_results', 
+                'optimized_resume', 'improvements', 'current_analysis_id', 'generation_successful', 
+                'uploaded_filename', 'api_key_validated']:
         if key not in st.session_state:
-            st.session_state[key] = "" if 'text' in key or 'resume' in key or 'key' in key else None
+            st.session_state[key] = None
+            if key in ['job_description', 'uploaded_filename', 'resume_mime_type']:
+                st.session_state[key] = ""
             if key == 'improvements': st.session_state[key] = []
-            if key == 'generation_successful': st.session_state[key] = False
+            if key == 'generation_successful' or key == 'api_key_validated':
+                st.session_state[key] = False
 
 
 def populate_html_template(resume_data: dict) -> str:
@@ -262,34 +271,27 @@ def main():
     with st.sidebar:
         st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Settings</h3>', unsafe_allow_html=True)
         
-        gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if not gemini_api_key:
+        if not st.session_state.gemini_client:
             st.error("⚠️ GEMINI_API_KEY required!")
-            return
-        
-        if not st.session_state.get('api_key_validated'):
+            st.stop()
+
+        if not st.session_state.api_key_validated:
             with st.spinner("Validating API key..."):
                 try:
-                    print("--- TRACE: Attempting to configure Gemini API key.", flush=True)
-                    genai.configure(api_key=gemini_api_key)
-                    print("--- TRACE: Attempting to list models to validate key.", flush=True)
-                    next(genai.list_models()) # This makes the network call
-                    print("--- TRACE: Gemini API key validated successfully.", flush=True)
+                    next(st.session_state.gemini_client.models.list())
                     st.session_state.api_key_validated = True
-                    # Do NOT rerun here in App Runner, it can cause issues. Let the script flow.
                 except Exception as e:
-                    print(f"!!! FATAL: FAILED TO VALIDATE GEMINI KEY: {e}", file=sys.stderr, flush=True)
-                    st.toast(f"Invalid Gemini API key: {str(e)}", icon="❌")
-                    st.session_state.api_key_validated = False
+                    st.error(f"Invalid Gemini API key: {e}", icon="❌")
+                    st.stop()
         
-        if st.session_state.get('api_key_validated'):
+        if st.session_state.api_key_validated:
             st.success("✅ API key is valid.")
         
         st.divider()
 
         st.markdown('<h4><span style="margin-right: 0.5rem;">📊</span>Progress</h4>', unsafe_allow_html=True)
         progress_items = [
-            ("Resume uploaded", bool(st.session_state.resume_text)),
+            ("Resume uploaded", bool(st.session_state.resume_bytes)),
             ("Job description added", bool(st.session_state.job_description)),
             ("Analysis completed", bool(st.session_state.analysis_results)),
             ("Resume generated", bool(st.session_state.generation_successful))
@@ -355,22 +357,31 @@ def handle_upload_and_input():
 
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
-        is_ready = bool(st.session_state.resume_text and st.session_state.job_description and st.session_state.get('api_key_validated'))
+        is_ready = bool(st.session_state.resume_bytes and st.session_state.job_description and st.session_state.api_key_validated)
+        
         if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
-            with st.spinner("Analyzing resume... This may take up 1 - 3 minutes."):
+            with st.spinner("Analyzing resume... This may take up to 1 - 3 minutes."):
                 try:
-                    # Call the new cached function instead of the direct one
-                    results = run_analysis(st.session_state.resume_text, st.session_state.job_description)
+                    results = run_analysis(
+                        st.session_state.gemini_client,
+                        st.session_state.resume_bytes,
+                        st.session_state.resume_mime_type,
+                        st.session_state.job_description
+                    )
+                    
                     st.session_state.analysis_results = results
+                    
+                    # The extracted text is now inside the results dict
+                    extracted_text = results.get('extracted_resume_text', '')
+
                     analysis = st.session_state.db_service.save_analysis(
                         session_id=st.session_state.session_id,
-                        resume_text=st.session_state.resume_text,
+                        resume_text=extracted_text,
                         job_description=st.session_state.job_description,
                         analysis_results=results,
                         original_filename=st.session_state.get('uploaded_filename', '')
                     )
                     st.session_state.current_analysis_id = analysis.id
-                    st.toast("Analysis complete!", icon="✅")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Analysis failed: {e}", icon="❌")
@@ -379,28 +390,21 @@ def handle_upload_and_input():
 
 def _render_resume_uploader():
     """Renders the resume upload section."""
-    uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=['pdf', 'docx'], label_visibility="collapsed")
+    uploaded_file = st.file_uploader("Upload your resume (PDF, DOCX, TXT)", type=['pdf', 'docx', 'txt'], label_visibility="collapsed")
     if uploaded_file:
         if uploaded_file.name != st.session_state.get('uploaded_filename'):
-            with st.spinner(f"Parsing '{uploaded_file.name}'..."):
+            with st.spinner(f"Loading '{uploaded_file.name}'..."):
                 try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                        tmp_file.write(uploaded_file.getvalue())
-                        tmp_file_path = tmp_file.name
-                    
-                    parser = DocumentParser()
-                    st.session_state.resume_text = parser.parse_document(tmp_file_path)
+                    st.session_state.resume_bytes = uploaded_file.getvalue()
+                    st.session_state.resume_mime_type = uploaded_file.type
                     st.session_state.uploaded_filename = uploaded_file.name
-                    os.unlink(tmp_file_path)
-                    st.toast(f"✅ Parsed '{st.session_state.uploaded_filename}'", icon="📄")
+                    st.toast(f"✅ Loaded '{st.session_state.uploaded_filename}'", icon="📄")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error parsing file: {e}", icon="❌")
+                    st.error(f"Error loading file: {e}", icon="❌")
     
-    if st.session_state.resume_text:
+    if st.session_state.resume_bytes:
         st.success(f"✅ Loaded: **{st.session_state.uploaded_filename}**")
-        with st.expander("Preview Resume Text"):
-            st.text_area("Resume Content", st.session_state.resume_text, height=200, disabled=True)
 
 def _render_jd_input():
     """Renders the job description input section."""
@@ -462,17 +466,14 @@ def handle_analysis_display():
         if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
             with st.spinner("AI is crafting your new resume... This may take 1 - 5 minutes."):
                 try:
-                    analyzer = ResumeAnalyzer()
-                    parsed_resume = analyzer.parse_resume_to_structure(st.session_state.resume_text)
+                    analyzer = ResumeAnalyzer(client=st.session_state.gemini_client)
+                    parsed_resume_dict = st.session_state.analysis_results.get('parsed_resume')
                     
-                    if parsed_resume:
-                        # Convert Pydantic model to dict for processing
-                        resume_structure = parsed_resume.model_dump()
-                        sections_to_optimize = parsed_resume.optimizable_sections
+                    if parsed_resume_dict:
+                        sections_to_optimize = parsed_resume_dict.get('optimizable_sections', [])
                         
-                        # 2. Run batch optimization
                         optimized_structure = analyzer.generate_optimized_resume(
-                            resume_structure, 
+                            parsed_resume_dict, 
                             st.session_state.job_description,
                             sections_to_optimize
                         )
