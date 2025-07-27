@@ -1,4 +1,3 @@
-import os
 import json
 import logging
 from typing import Dict, List, Any, Optional
@@ -73,12 +72,18 @@ class ParsedResume(BaseModel):
         description="The full text content of the resume as extracted from the document."
     )
 
+class Improvement(BaseModel):
+    priority: str = Field(description="Priority level: High, Medium, or Low.")
+    category: str = Field(description="Category of the improvement (e.g., Experience, Skills).")
+    suggestion: str = Field(description="Detailed suggestion for improvement.")
+    issue: str = Field(description="The specific issue identified in the resume.")
+
 class ResumeAnalysisResult(BaseModel):
     match_score: int = Field(description="Percentage match score from 0-100.")
     overall_rating: str = Field(description="Overall rating: Excellent, Good, Fair, or Poor.")
     missing_keywords: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list)
-    improvements: List[Dict[str, Any]] = Field(default_factory=list)
+    improvements: List[Improvement] = Field(default_factory=list)
 
 class ResumeAnalyzer:
     def __init__(self, client: genai.Client):

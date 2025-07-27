@@ -74,7 +74,6 @@ def initialize_session_state():
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             try:
-                print("--- TRACE: Creating Gemini Client object.", flush=True)
                 st.session_state.gemini_client = genai.Client(api_key=api_key)
             except Exception as e:
                 st.session_state.gemini_client = None
