@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import uuid
+import asyncio
 
 from google import genai
 
@@ -10,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from utils.resume_analyzer import ResumeAnalyzer
+from utils.job_scraper import scrape_job_description
 from database.service import DatabaseService
 
 from io import BytesIO
@@ -53,6 +55,21 @@ st.markdown(
     .stApp {
         background-color: #fdfdf8;
     }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+
+    h1 {
+        margin-top: 0 !important;
+        margin-bottom: 0.25rem !important;
+    }
+
+    h4 {
+        margin-top: 0 !important;
+        margin-bottom: 1.5rem !important;
+    }
+    /* --- END OF ADDED RULES --- */
 
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Space Grotesk', sans-serif;
@@ -340,7 +357,6 @@ def main():
 def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis."""
     st.markdown("<h5>Step 1: Provide Your Resume & the Job Description</h5>", unsafe_allow_html=True)
-    st.write("")
     
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
@@ -349,15 +365,26 @@ def handle_upload_and_input():
     
     with col2.container(border=True):
         st.markdown('<h5><span style="margin-right: 0.5rem;">🎯</span>Target Job Description</h5>', unsafe_allow_html=True)
-        _render_jd_input()
 
-    st.write("")
-    st.write("")
+        job_url = st.text_input("Paste Job Posting URL (e.g., from LinkedIn, Glints)", "")
+        if st.button("Scrape Job Description", use_container_width=True):
+            if job_url:
+                with st.spinner("Scraping job description..."):
+                    scraped_text = asyncio.run(scrape_job_description(job_url))
+                    if scraped_text:
+                        st.session_state.job_description = scraped_text
+                        st.success("Scraping successful! Job description has been populated below.")
+                    else:
+                        st.error("Failed to scrape the job description. Please paste it manually.")
+            else:
+                st.warning("Please enter a URL to scrape.")
+
+        _render_jd_input()
 
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
         is_ready = bool(st.session_state.resume_bytes and st.session_state.job_description and st.session_state.api_key_validated)
-        
+
         if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
             with st.spinner("Analyzing resume... This may take up to 1 - 3 minutes."):
                 try:
@@ -367,10 +394,9 @@ def handle_upload_and_input():
                         st.session_state.resume_mime_type,
                         st.session_state.job_description
                     )
-                    
+
                     st.session_state.analysis_results = results
-                    
-                    # The extracted text is now inside the results dict
+
                     extracted_text = results.get('extracted_resume_text', '')
 
                     analysis = st.session_state.db_service.save_analysis(
@@ -407,7 +433,7 @@ def _render_resume_uploader():
 
 def _render_jd_input():
     """Renders the job description input section."""
-    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=180, label_visibility="collapsed", placeholder="Paste the job description you are applying for...")
+    jd_text = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=250, label_visibility="collapsed", placeholder="Paste the job description you are applying for, or scrape it from a URL above.")
     if jd_text != st.session_state.job_description:
         st.session_state.job_description = jd_text
         st.rerun()

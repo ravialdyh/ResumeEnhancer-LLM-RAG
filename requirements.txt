@@ -12,6 +12,9 @@ psycopg2-binary
 # Document & Text Processing
 numpy
 xhtml2pdf
+beautifulsoup4
+playwright
+trafilatura
 
 # RAG System
 torch
