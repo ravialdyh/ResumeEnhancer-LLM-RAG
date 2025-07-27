@@ -67,9 +67,14 @@ st.markdown(
 
     h4 {
         margin-top: 0 !important;
-        margin-bottom: 1.5rem !important;
+        margin-bottom: 0.1rem !important;
     }
     /* --- END OF ADDED RULES --- */
+
+    /* New rule to reduce top padding and move content up */
+    .block-container {
+        padding-top: 1rem !important;
+    }
 
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Space Grotesk', sans-serif;
@@ -322,8 +327,6 @@ def main():
                 f'</div>',
                 unsafe_allow_html=True
             )
-        
-        st.divider()
 
         if hasattr(st.session_state, 'db_service'):
             try:
@@ -347,7 +350,7 @@ def main():
     # --- Main Content ---
     st.markdown('<h1><span style="margin-right: 0.75rem;">Align Your Resume Now</span>🚀</h1>', unsafe_allow_html=True)
     st.markdown("<h4>Generate optimized resume given your existing CV and dream job description with AI</h4>", unsafe_allow_html=True)
-    st.divider()
+    st.write("")
 
     if not st.session_state.analysis_results:
         handle_upload_and_input()
@@ -356,8 +359,6 @@ def main():
 
 def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis."""
-    st.markdown("<h5>Step 1: Provide Your Resume & the Job Description</h5>", unsafe_allow_html=True)
-    
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
         st.markdown('<h5><span style="margin-right: 0.5rem;">📄</span>Your Resume</h5>', unsafe_allow_html=True)
@@ -446,7 +447,7 @@ def handle_analysis_display():
         _render_success_page()
         return
 
-    st.markdown("<h5>Step 2: Review Analysis & Generate Your New Resume</h5>", unsafe_allow_html=True)
+    st.markdown("<h5>Review Analysis & Generate Your New Resume</h5>", unsafe_allow_html=True)
     st.write("")
 
     results = st.session_state.analysis_results
