@@ -19,7 +19,7 @@ from xhtml2pdf import pisa
 
 st.set_page_config(
     page_title="Align Your Resume Now!",
-    page_icon="🚀",
+    page_icon=":material/rocket_launch:",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -290,7 +290,7 @@ def main():
 
     # --- Sidebar ---
     with st.sidebar:
-        st.markdown('<h3><span style="margin-right: 0.5rem;">⚙️</span>Settings</h3>', unsafe_allow_html=True)
+        st.markdown("### :material/settings: Settings")
         
         if not st.session_state.gemini_client:
             st.error("⚠️ GEMINI_API_KEY required!")
@@ -310,7 +310,7 @@ def main():
         
         st.divider()
 
-        st.markdown('<h4><span style="margin-right: 0.5rem;">📊</span>Progress</h4>', unsafe_allow_html=True)
+        st.markdown("#### :material/checklist: Progress")
         progress_items = [
             ("Resume uploaded", bool(st.session_state.resume_bytes)),
             ("Job description added", bool(st.session_state.job_description)),
@@ -348,7 +348,7 @@ def main():
             st.rerun()
 
     # --- Main Content ---
-    st.markdown('<h1><span style="margin-right: 0.75rem;">Align Your Resume Now</span>🚀</h1>', unsafe_allow_html=True)
+    st.title(":material/rocket_launch: Align Your Resume Now")
     st.markdown("<h4>Generate optimized resume given your existing CV and dream job description with AI</h4>", unsafe_allow_html=True)
     st.write("")
 
@@ -361,11 +361,11 @@ def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis."""
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">📄</span>Your Resume</h5>', unsafe_allow_html=True)
+        st.markdown("##### :material/description: Your Resume")
         _render_resume_uploader()
     
     with col2.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">🎯</span>Target Job Description</h5>', unsafe_allow_html=True)
+        st.markdown("##### :material/ads_click: Target Job Description")
 
         job_url = st.text_input("Paste Job Posting URL (e.g., from LinkedIn, Glints)", "")
         if st.button("Scrape Job Description", use_container_width=True):
@@ -386,7 +386,7 @@ def handle_upload_and_input():
     with col2:
         is_ready = bool(st.session_state.resume_bytes and st.session_state.job_description and st.session_state.api_key_validated)
 
-        if st.button("✨ Analyze & Optimize", type="primary", use_container_width=True, disabled=not is_ready):
+        if st.button("Analyze & Optimize", icon=":material/auto_awesome:", type="primary", use_container_width=True, disabled=not is_ready):
             with st.spinner("Analyzing resume... This may take up to 1 - 3 minutes."):
                 try:
                     results = run_analysis(
@@ -461,15 +461,15 @@ def handle_analysis_display():
 
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">✅</span>Strengths</h5>', unsafe_allow_html=True)
+        st.markdown('<h5><span style="margin-right: 0.5rem;">:material/thumb_up:</span>Strengths</h5>', unsafe_allow_html=True)
         for strength in results.get('strengths', ["No specific strengths identified."]):
             st.markdown(f"- {strength}")
-        st.markdown('<br><h5><span style="margin-right: 0.5rem;">🔑</span>Missing Keywords</h5>', unsafe_allow_html=True)
+        st.markdown('<br><h5><span style="margin-right: 0.5rem;">:material/key_off:</span>Missing Keywords</h5>', unsafe_allow_html=True)
         for keyword in results.get('missing_keywords', ["No missing keywords identified."]):
             st.markdown(f"- `{keyword}`")
 
     with col2.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">🔧</span>Recommended Improvements</h5>', unsafe_allow_html=True)
+        st.markdown('<h5><span style="margin-right: 0.5rem;">:material/construction:</span>Recommended Improvements</h5>', unsafe_allow_html=True)
         if not results.get('improvements'):
             st.info("No specific improvements were suggested. Your resume looks well-aligned!")
         else:
