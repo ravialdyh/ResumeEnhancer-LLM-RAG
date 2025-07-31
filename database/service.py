@@ -2,11 +2,14 @@ import uuid
 import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 import re
 
 from .models import ResumeAnalysis, UserSession, AnalysisHistory, get_db, init_database
+
+from passlib.context import CryptContext
+from .models import AppUser
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,7 @@ class DatabaseService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        # Initialize database on first use
+        
         try:
             init_database()
         except Exception as e:
@@ -60,7 +63,7 @@ class DatabaseService:
         """Save resume analysis to database"""
         db = get_db()
         try:
-            # Extract key metrics from analysis results
+            
             match_score = analysis_results.get('match_score', 0)
             overall_rating = analysis_results.get('overall_rating', 'Fair')
             missing_keywords_count = len(analysis_results.get('missing_keywords', []))
@@ -81,13 +84,13 @@ class DatabaseService:
             
             db.add(analysis)
             
-            # Update session analysis count
+            
             session = db.query(UserSession).filter(UserSession.session_id == session_id).first()
             if session:
                 session.analysis_count += 1
                 session.last_activity = datetime.utcnow()
             
-            # Add to analysis history
+            
             job_info = self._extract_job_info(job_description)
             history = AnalysisHistory(
                 session_id=session_id,
@@ -167,7 +170,7 @@ class DatabaseService:
             if not session:
                 return {}
             
-            # Get analysis statistics
+            
             analyses = db.query(ResumeAnalysis)\
                         .filter(ResumeAnalysis.session_id == session_id)\
                         .filter(ResumeAnalysis.is_active == True)\
@@ -217,9 +220,9 @@ class DatabaseService:
         job_info = {'title': '', 'company': ''}
         
         try:
-            lines = job_description.split('\n')[:10]  # Check first 10 lines
+            lines = job_description.split('\n')[:10]  
             
-            # Common patterns for job titles
+            
             title_patterns = [
                 r'(?i)position:\s*(.+)',
                 r'(?i)job\s+title:\s*(.+)',
@@ -228,7 +231,7 @@ class DatabaseService:
                 r'(?i)hiring\s+a?\s*(.+)',
             ]
             
-            # Common patterns for company names
+            
             company_patterns = [
                 r'(?i)company:\s*(.+)',
                 r'(?i)at\s+([A-Z][a-zA-Z\s&]+)(?:\s+we|\s+is|\s+has)',
@@ -236,17 +239,17 @@ class DatabaseService:
             ]
             
             for line in lines:
-                # Extract job title
+                
                 for pattern in title_patterns:
                     match = re.search(pattern, line)
                     if match and not job_info['title']:
-                        job_info['title'] = match.group(1).strip()[:100]  # Limit length
+                        job_info['title'] = match.group(1).strip()[:100]  
                 
-                # Extract company name
+                
                 for pattern in company_patterns:
                     match = re.search(pattern, line)
                     if match and not job_info['company']:
-                        job_info['company'] = match.group(1).strip()[:100]  # Limit length
+                        job_info['company'] = match.group(1).strip()[:100]  
                 
                 if job_info['title'] and job_info['company']:
                     break
@@ -255,3 +258,84 @@ class DatabaseService:
             self.logger.warning(f"Error extracting job info: {str(e)}")
         
         return job_info
+    
+    def create_user(self, username: str, hashed_password: str) -> AppUser:
+        db = get_db()
+        try:
+            user = AppUser(username=username, hashed_password=hashed_password)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user
+        finally:
+            db.close()
+
+    def authenticate_user(self, username: str, password: str) -> Optional[AppUser]:
+        db = get_db()
+        try:
+            user = db.query(AppUser).filter(AppUser.username == username).first()
+            if user and pwd_context.verify(password, user.hashed_password):
+                return user
+            return None
+        finally:
+            db.close()
+
+    def get_user_by_username(self, username: str) -> Optional[AppUser]:
+        db = get_db()
+        try:
+            return db.query(AppUser).filter(AppUser.username == username).first()
+        finally:
+            db.close()
+
+    def create_initial_analysis(self, session_id: str, user_id: int, original_filename: str, job_description: str) -> ResumeAnalysis:
+        db = get_db()
+        try:
+            analysis = ResumeAnalysis(
+                session_id=session_id,
+                user_id=user_id,
+                original_filename=original_filename,
+                job_description=job_description,
+                status="PENDING"  
+            )
+            db.add(analysis)
+            db.commit()
+            db.refresh(analysis)
+            return analysis
+        finally:
+            db.close()
+
+    def update_analysis_status(self, analysis_id: str, status: str):
+        db = get_db()
+        try:
+            analysis = db.query(ResumeAnalysis).filter(ResumeAnalysis.id == analysis_id).first()
+            if analysis:
+                analysis.status = status
+                analysis.updated_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+
+    def update_analysis_with_results(self, analysis_id: str, results: Dict[str, Any], status: str = "COMPLETED"):
+        db = get_db()
+        try:
+            analysis = db.query(ResumeAnalysis).filter(ResumeAnalysis.id == analysis_id).first()
+            if analysis:
+                analysis.analysis_results = results
+                analysis.status = status
+                analysis.updated_at = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
+
+    def get_analysis_by_id(self, analysis_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+        db = get_db()
+        try:
+            analysis = db.query(ResumeAnalysis).filter(ResumeAnalysis.id == analysis_id, ResumeAnalysis.user_id == user_id).first()
+            if analysis:
+                return {
+                    "status": analysis.status,
+                    "results": analysis.analysis_results if analysis.status == "COMPLETED" else None
+                }
+            return None
+        finally:
+            db.close()

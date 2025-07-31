@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-from typing import Optional, Dict, Any
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float, JSON, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -23,6 +22,7 @@ class ResumeAnalysis(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(255), index=True)  # For tracking user sessions
+    user_id = Column(Integer, ForeignKey('app_users.id'), index=True)  # Add this; links to AppUser
     original_filename = Column(String(255))
     resume_text = Column(Text)
     job_description = Column(Text)
@@ -32,6 +32,7 @@ class ResumeAnalysis(Base):
     overall_rating = Column(String(50))
     missing_keywords_count = Column(Integer)
     improvements_count = Column(Integer)
+    status = Column(String(50), default='PENDING')  # Add this
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
@@ -84,3 +85,10 @@ def init_database():
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
         raise
+
+class AppUser(Base):
+    __tablename__ = "app_users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(255), unique=True, index=True)
+    hashed_password = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)

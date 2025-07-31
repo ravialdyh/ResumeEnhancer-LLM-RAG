@@ -23,3 +23,14 @@ sentence-transformers
 
 # For local environment variables
 python-dotenv
+
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+passlib[bcrypt]
+celery
+redis
+loguru
+prometheus-client
+sentry-sdk
+alembic

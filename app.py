@@ -1,11 +1,10 @@
 import streamlit as st
 import os
-import sys
 import json
 import uuid
 import asyncio
-
-from google import genai
+import requests
+import time
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -84,25 +83,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-@st.cache_data(show_spinner=False)
-def run_analysis(_client, resume_bytes, resume_mime_type, job_description):
-    # Pass the client to the analyzer
-    analyzer = ResumeAnalyzer(client=_client)
-    return analyzer.analyze_resume(resume_bytes, resume_mime_type, job_description)
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 def initialize_session_state():
-    """Initialize session state variables, including the Gemini client."""
-    if 'gemini_client' not in st.session_state:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            try:
-                st.session_state.gemini_client = genai.Client(api_key=api_key)
-            except Exception as e:
-                st.session_state.gemini_client = None
-                print(f"!!! FATAL: FAILED TO CREATE GEMINI CLIENT: {e}", file=sys.stderr, flush=True)
-        else:
-            st.session_state.gemini_client = None
-
+    """Initialize session state variables."""
     if 'db_service' not in st.session_state:
         try:
             st.session_state.db_service = DatabaseService()
@@ -119,15 +103,14 @@ def initialize_session_state():
 
     for key in ['resume_bytes', 'resume_mime_type', 'job_description', 'analysis_results', 
                 'optimized_resume', 'improvements', 'current_analysis_id', 'generation_successful', 
-                'uploaded_filename', 'api_key_validated']:
+                'uploaded_filename', 'token']:
         if key not in st.session_state:
             st.session_state[key] = None
             if key in ['job_description', 'uploaded_filename', 'resume_mime_type']:
                 st.session_state[key] = ""
             if key == 'improvements': st.session_state[key] = []
-            if key == 'generation_successful' or key == 'api_key_validated':
+            if key in ['generation_successful']:
                 st.session_state[key] = False
-
 
 def populate_html_template(resume_data: dict) -> str:
     """
@@ -288,25 +271,49 @@ def main():
     """Main application flow."""
     initialize_session_state()
 
+    # --- Authentication ---
+    if 'token' not in st.session_state or not st.session_state.token:
+        st.title("Login or Sign Up")
+        tab1, tab2 = st.tabs(["Login", "Sign Up"])
+        
+        with tab1:
+            with st.form("login_form"):
+                username = st.text_input("Username", key="login_username")
+                password = st.text_input("Password", type="password", key="login_password")
+                submitted = st.form_submit_button("Login")
+                if submitted:
+                    try:
+                        response = requests.post(f"{API_BASE_URL}/token", data={"username": username, "password": password})
+                        response.raise_for_status()
+                        data = response.json()
+                        st.session_state.token = data["access_token"]
+                        st.success("Logged in successfully!")
+                        st.rerun()
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Login failed: {e}")
+
+        with tab2:
+            with st.form("signup_form"):
+                new_username = st.text_input("New Username", key="signup_username")
+                new_password = st.text_input("New Password", type="password", key="signup_password")
+                submitted = st.form_submit_button("Sign Up")
+                if submitted:
+                    try:
+                        response = requests.post(f"{API_BASE_URL}/users", json={"username": new_username, "password": new_password})
+                        response.raise_for_status()
+                        st.success("Sign up successful! Please login.")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Sign up failed: {e}")
+        st.stop()
+
     # --- Sidebar ---
     with st.sidebar:
         st.markdown("### :material/settings: Settings")
         
-        if not st.session_state.gemini_client:
-            st.error("⚠️ GEMINI_API_KEY required!")
-            st.stop()
-
-        if not st.session_state.api_key_validated:
-            with st.spinner("Validating API key..."):
-                try:
-                    next(st.session_state.gemini_client.models.list())
-                    st.session_state.api_key_validated = True
-                except Exception as e:
-                    st.error(f"Invalid Gemini API key: {e}", icon="❌")
-                    st.stop()
-        
-        if st.session_state.api_key_validated:
-            st.success("✅ API key is valid.")
+        st.success("✅ Logged in.")
+        if st.button("Logout"):
+            del st.session_state.token
+            st.rerun()
         
         st.divider()
 
@@ -343,7 +350,7 @@ def main():
         if st.button("🔄 Start New Session", type="secondary", use_container_width=True):
             keys_to_clear = list(st.session_state.keys())
             for key in keys_to_clear:
-                if key not in ['db_service', 'api_key_validated']:
+                if key not in ['db_service', 'token']:
                     del st.session_state[key]
             st.rerun()
 
@@ -358,7 +365,7 @@ def main():
         handle_analysis_display()
 
 def handle_upload_and_input():
-    """Handle resume upload, job description input, and trigger analysis."""
+    """Handle resume upload, job description input, and trigger analysis via API."""
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
         st.markdown("##### :material/description: Your Resume")
@@ -384,33 +391,34 @@ def handle_upload_and_input():
 
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
-        is_ready = bool(st.session_state.resume_bytes and st.session_state.job_description and st.session_state.api_key_validated)
+        is_ready = bool(st.session_state.resume_bytes and st.session_state.job_description and st.session_state.token)
 
         if st.button("Analyze & Optimize", icon=":material/auto_awesome:", type="primary", use_container_width=True, disabled=not is_ready):
-            with st.spinner("Analyzing resume... This may take up to 1 - 3 minutes."):
-                try:
-                    results = run_analysis(
-                        st.session_state.gemini_client,
-                        st.session_state.resume_bytes,
-                        st.session_state.resume_mime_type,
-                        st.session_state.job_description
-                    )
-
-                    st.session_state.analysis_results = results
-
-                    extracted_text = results.get('extracted_resume_text', '')
-
-                    analysis = st.session_state.db_service.save_analysis(
-                        session_id=st.session_state.session_id,
-                        resume_text=extracted_text,
-                        job_description=st.session_state.job_description,
-                        analysis_results=results,
-                        original_filename=st.session_state.get('uploaded_filename', '')
-                    )
-                    st.session_state.current_analysis_id = analysis.id
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Analysis failed: {e}", icon="❌")
+            headers = {"Authorization": f"Bearer {st.session_state.token}"}
+            files = {"resume_file": (st.session_state.uploaded_filename, st.session_state.resume_bytes, st.session_state.resume_mime_type)}
+            data = {"job_description": st.session_state.job_description}
+            try:
+                response = requests.post(f"{API_BASE_URL}/v1/analyze", headers=headers, files=files, data=data)
+                response.raise_for_status()
+                analysis_info = response.json()
+                analysis_id = analysis_info["analysis_id"]
+                st.session_state.current_analysis_id = analysis_id
+                
+                with st.spinner("Analyzing resume... This may take up to 1 - 3 minutes."):
+                    while True:
+                        result_response = requests.get(f"{API_BASE_URL}/v1/analysis/{analysis_id}", headers=headers)
+                        if result_response.status_code == 200:
+                            data = result_response.json()
+                            if data["status"] == "COMPLETED":
+                                st.session_state.analysis_results = data["results"]
+                                st.rerun()
+                                break
+                            elif data["status"] == "FAILED":
+                                st.error("Analysis failed on the backend.")
+                                break
+                        time.sleep(10)
+            except requests.exceptions.RequestException as e:
+                st.error(f"Failed to connect to the analysis service: {e}")
         if not is_ready:
             st.caption("Please upload a resume and paste your dream job description.")
 
@@ -492,12 +500,13 @@ def handle_analysis_display():
         if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
             with st.spinner("AI is crafting your new resume... This may take 1 - 5 minutes."):
                 try:
-                    analyzer = ResumeAnalyzer(client=st.session_state.gemini_client)
                     parsed_resume_dict = st.session_state.analysis_results.get('parsed_resume')
                     
                     if parsed_resume_dict:
                         sections_to_optimize = parsed_resume_dict.get('optimizable_sections', [])
                         
+                        # Note: In decoupled arch, optimization could be moved to backend, but keep local for now as per original
+                        analyzer = ResumeAnalyzer(client=None)  # Client not needed if optimization is local, but adjust if Gemini used
                         optimized_structure = analyzer.generate_optimized_resume(
                             parsed_resume_dict, 
                             st.session_state.job_description,
