@@ -243,37 +243,6 @@ def handle_auth():
                 except requests.exceptions.RequestException as e:
                     st.error(f"Connection error: {e}")
 
-def handle_sidebar():
-    """Render the sidebar content."""
-    st.markdown("### :material/settings: Settings")
-    st.success("✅ Logged in.")
-    if st.button("Logout"):
-        for key in st.session_state.keys():
-            del st.session_state[key]
-        st.rerun()
-
-    st.divider()
-    st.markdown("#### :material/checklist: Progress")
-    progress_items = [
-        ("Resume uploaded", bool(st.session_state.resume_bytes)),
-        ("Job description added", bool(st.session_state.job_description)),
-        ("Analysis completed", st.session_state.analysis_status == 'COMPLETED' and st.session_state.analysis_results is not None),
-        ("Resume generated", st.session_state.analysis_status == 'COMPLETED' and st.session_state.optimized_resume is not None)
-    ]
-    for item, completed in progress_items:
-        emoji = "✅" if completed else "⏳"
-        status_class = "completed" if completed else ""
-        st.markdown(f'<div class="progress-pill {status_class}"><span class="emoji">{emoji}</span>{item}</div>', unsafe_allow_html=True)
-
-    st.divider()
-    if st.button("🔄 Start New Session", type="secondary", use_container_width=True):
-        token = st.session_state.token # Preserve token
-        for key in st.session_state.keys():
-            del st.session_state[key]
-        st.session_state.token = token # Restore token
-        initialize_session_state()
-        st.rerun()
-
 def handle_upload_and_input():
     """Handle resume upload, job description input, and trigger analysis via API."""
     if st.session_state.analysis_status == 'FAILED':
@@ -317,10 +286,54 @@ def handle_upload_and_input():
         if not is_ready:
             st.caption("Please upload a resume and paste a job description.")
 
+def handle_sidebar():
+    """Render the sidebar content."""
+    st.markdown("### :material/settings: Settings")
+    st.success("✅ Logged in.")
+    
+    # Decode JWT to get username
+    try:
+        payload = jwt.decode(st.session_state.token, options={"verify_signature": False})
+        username = payload.get('sub', 'User')
+        st.markdown(f"Logged in as: **{username}**", unsafe_allow_html=True)
+    except jwt.DecodeError:
+        st.markdown("Logged in as: **User**", unsafe_allow_html=True)
+    
+    if st.button("Logout"):
+        for key in st.session_state.keys():
+            del st.session_state[key]
+        st.rerun()
+
+    st.divider()
+    st.markdown("#### :material/checklist: Progress")
+    progress_items = [
+        ("Resume uploaded", bool(st.session_state.resume_bytes)),
+        ("Job description added", bool(st.session_state.job_description)),
+        ("Analysis completed", st.session_state.analysis_status == 'COMPLETED' and st.session_state.analysis_results is not None),
+        ("Resume generated", st.session_state.analysis_status == 'COMPLETED' and st.session_state.optimized_resume is not None)
+    ]
+    for item, completed in progress_items:
+        emoji = "✅" if completed else "⏳"
+        status_class = "completed" if completed else ""
+        st.markdown(f'<div class="progress-pill {status_class}"><span class="emoji">{emoji}</span>{item}</div>', unsafe_allow_html=True)
+
+    st.divider()
+    if st.button("🔄 Start New Session", type="secondary", use_container_width=True):
+        token = st.session_state.token  # Preserve token
+        for key in st.session_state.keys():
+            del st.session_state[key]
+        st.session_state.token = token  # Restore token
+        initialize_session_state()
+        st.rerun()
+
 def handle_polling():
     """Poll the API for analysis results and handle the response."""
     status_message = "Optimizing your resume with AI..." if st.session_state.analysis_status == 'OPTIMIZING' else "Analyzing your resume... This may take up to 1 - 3 minutes."
     with st.spinner(status_message):
+        start_time = time.time()  # Track start time for progress
+        progress_bar = st.progress(0)  # Initialize progress bar
+        st.toast("Polling for results...", icon=":material/hourglass_top:")  # Toast notification with material icon
+        
         headers = {"Authorization": f"Bearer {st.session_state.token}"}
         while True:
             try:
@@ -337,7 +350,9 @@ def handle_polling():
                         st.session_state.analysis_status = "FAILED"
                         st.rerun()
                         break
-                    # If still PENDING or OPTIMIZING, just wait and loop again
+                    # If still PENDING or OPTIMIZING, update progress
+                    elapsed = time.time() - start_time
+                    progress_bar.progress(min(elapsed / 180, 1.0))
                 else:
                     st.session_state.analysis_status = "FAILED"
                     st.error("Could not retrieve analysis results.")
@@ -348,7 +363,7 @@ def handle_polling():
                 st.error(f"Connection error while polling: {e}")
                 st.rerun()
                 break
-            time.sleep(5) # Poll every 5 seconds
+            time.sleep(5)  # Poll every 5 seconds
 
 def handle_analysis_display():
     """Display analysis results and the button to generate the optimized resume."""

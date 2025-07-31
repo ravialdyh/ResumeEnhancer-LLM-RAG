@@ -11,3 +11,4 @@ alembic
 sqlalchemy
 psycopg2-binary
 fastapi-limiter
+prometheus-fastapi-instrumentator

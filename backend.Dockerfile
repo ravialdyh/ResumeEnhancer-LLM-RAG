@@ -3,12 +3,14 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copy only the backend-specific requirements file
-COPY backend-requirements.txt .
+RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
 
-# Install backend dependencies
+COPY backend-requirements.txt .
 RUN pip install --no-cache-dir -r backend-requirements.txt
 
 COPY . .
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
