@@ -1,0 +1,17 @@
+celery
+redis
+loguru
+sentry-sdk
+google-genai
+pydantic
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+faiss-cpu
+sentence-transformers
+numpy
+sqlalchemy
+psycopg2-binary
+PyPDF2
+pdfplumber
+python-docx
+PyMuPDF

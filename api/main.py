@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, UTC
 import uuid
 import redis.asyncio as redis
 
-from .tasks import run_analysis_task
+from .tasks import run_analysis_task, run_optimization_task
 from database.service import DatabaseService
 from database.models import AppUser
 
@@ -109,3 +109,13 @@ def get_analysis_results(analysis_id: str, current_user: User = Depends(get_curr
     if not results:
         raise HTTPException(status_code=404, detail="Analysis not found or unauthorized")
     return results
+
+@app.post("/v1/optimize/{analysis_id}", status_code=status.HTTP_202_ACCEPTED)
+def optimize_resume(analysis_id: str, current_user: User = Depends(get_current_user)):
+    analysis = db_service.get_analysis_by_id(analysis_id, user_id=current_user.id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found or unauthorized")
+
+    run_optimization_task.delay(analysis_id)
+    logger.info(f"Queued optimization for analysis {analysis_id} for user {current_user.username}")
+    return {"message": "Optimization task queued successfully."}

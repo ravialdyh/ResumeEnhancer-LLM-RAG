@@ -1,0 +1,75 @@
+# docker-compose.yml
+
+version: '3.8'
+
+services:
+  # 1. Database Service: PostgreSQL
+  db:
+    image: postgres:13-alpine
+    container_name: postgres_db_container
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # 2. Broker Service: Redis
+  redis:
+    image: redis:6.2-alpine
+    container_name: redis_broker_container
+    networks:
+      - app-network
+
+  # 3. Backend API Service: FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: backend_api_container
+    ports:
+      - "8000:8000" # Expose API port to your Mac
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+    networks:
+      - app-network
+
+  # 4. Background Worker Service: Celery
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    container_name: celery_worker_container
+    env_file: .env
+    depends_on:
+      - redis
+      - db
+    networks:
+      - app-network
+
+  # 5. Frontend UI Service: Streamlit
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamlit_frontend_container
+    ports:
+      - "8501:8501" # Expose Streamlit port to your Mac
+    env_file: .env
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+# Define the network for all services to communicate
+networks:
+  app-network:
+    driver: bridge
+
+# Define the volume to persist database data across restarts
+volumes:
+  postgres_data:

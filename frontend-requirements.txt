@@ -1,0 +1,7 @@
+streamlit>=1.47.0
+requests
+python-dotenv
+beautifulsoup4
+playwright
+trafilatura
+xhtml2pdf

@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+passlib[bcrypt]
+celery
+redis
+loguru
+prometheus-client
+sentry-sdk
+alembic
+sqlalchemy
+psycopg2-binary
+fastapi-limiter

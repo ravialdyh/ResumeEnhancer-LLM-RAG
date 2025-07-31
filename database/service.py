@@ -332,10 +332,26 @@ class DatabaseService:
         try:
             analysis = db.query(ResumeAnalysis).filter(ResumeAnalysis.id == analysis_id, ResumeAnalysis.user_id == user_id).first()
             if analysis:
+                optimized_resume_data = None
+                if analysis.optimized_resume:
+                    try:
+                        optimized_resume_data = json.loads(analysis.optimized_resume)
+                    except json.JSONDecodeError:
+                        optimized_resume_data = analysis.optimized_resume # Fallback for non-JSON
+
                 return {
                     "status": analysis.status,
-                    "results": analysis.analysis_results if analysis.status == "COMPLETED" else None
+                    "results": analysis.analysis_results if analysis.status in ["COMPLETED", "OPTIMIZING"] else None,
+                    "optimized_resume": optimized_resume_data if analysis.status == "COMPLETED" and analysis.optimized_resume else None
                 }
             return None
+        finally:
+            db.close()
+
+    def get_full_analysis_by_id(self, analysis_id: str) -> Optional[ResumeAnalysis]:
+        """Gets the full SQLAlchemy ResumeAnalysis object."""
+        db = get_db()
+        try:
+            return db.query(ResumeAnalysis).filter(ResumeAnalysis.id == analysis_id).first()
         finally:
             db.close()
