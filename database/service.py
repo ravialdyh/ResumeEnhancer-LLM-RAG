@@ -4,9 +4,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from .models import ResumeAnalysis, get_db, init_database, AppUser
-
 from passlib.context import CryptContext
-from .models import AppUser
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 logger = logging.getLogger(__name__)
@@ -16,7 +15,6 @@ class DatabaseService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
         try:
             init_database()
         except Exception as e:
@@ -118,8 +116,7 @@ class DatabaseService:
                     try:
                         optimized_resume_data = json.loads(analysis.optimized_resume)
                     except json.JSONDecodeError:
-                        optimized_resume_data = analysis.optimized_resume # Fallback for non-JSON
-
+                        optimized_resume_data = analysis.optimized_resume  # Fallback for non-JSON
                 return {
                     "status": analysis.status,
                     "results": analysis.analysis_results if analysis.status in ["COMPLETED", "OPTIMIZING"] else None,
