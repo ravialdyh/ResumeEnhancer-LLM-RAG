@@ -262,7 +262,31 @@ def handle_upload_and_input():
 
     with col2.container(border=True):
         st.markdown("##### :material/ads_click: Target Job Description")
-        st.session_state.job_description = st.text_area("Paste the full job description here", value=st.session_state.job_description, height=250, label_visibility="collapsed", placeholder="Paste the job description you are applying for.")
+
+        job_url = st.text_input("Paste Job Posting URL (e.g., from LinkedIn)", "")
+        if st.button("Scrape Job Description", use_container_width=True):
+            if job_url:
+                with st.spinner("Scraping job description..."):
+                    headers = {"Authorization": f"Bearer {st.session_state.token}"}
+                    try:
+                        response = requests.post(f"{API_BASE_URL}/v1/scrape-job", headers=headers, json={"url": job_url})
+                        if response.status_code == 200:
+                            st.session_state.job_description = response.json()["job_description"]
+                            st.success("Scraping successful! Job description populated below.")
+                        else:
+                            st.error(f"Scraping failed: {response.json().get('detail', 'Unknown error')}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Failed to connect to the scraping service: {e}")
+            else:
+                st.warning("Please enter a URL to scrape.")
+        
+        st.session_state.job_description = st.text_area(
+            "Paste the full job description here", 
+            value=st.session_state.job_description, 
+            height=250, 
+            label_visibility="collapsed", 
+            placeholder="Paste the job description you are applying for, or scrape it from a URL above."
+        )
         if st.session_state.job_description:
             st.success("✅ Job description added.")
 

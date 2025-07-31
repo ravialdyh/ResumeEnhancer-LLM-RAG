@@ -12,3 +12,6 @@ sqlalchemy
 psycopg2-binary
 fastapi-limiter
 prometheus-fastapi-instrumentator
+beautifulsoup4
+playwright
+trafilatura

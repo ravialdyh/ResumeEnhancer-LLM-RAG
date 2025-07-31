@@ -14,6 +14,7 @@ import uuid
 import redis.asyncio as redis
 
 from .tasks import run_analysis_task, run_optimization_task
+from utils.job_scraper import scrape_job_description
 from database.service import DatabaseService
 from database.models import AppUser
 
@@ -84,6 +85,31 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = jwt.encode({"sub": user.username, "exp": datetime.now(UTC) + access_token_expires}, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
+
+class ScrapeRequest(BaseModel):
+    url: str
+
+class ScrapeResponse(BaseModel):
+    job_description: str
+
+@app.post("/v1/scrape-job", response_model=ScrapeResponse)
+async def scrape_job(request: ScrapeRequest, current_user: User = Depends(get_current_user)):
+    """
+    Accepts a URL and returns the scraped job description text.
+    """
+    logger.info(f"Scraping job URL for user {current_user.username}: {request.url}")
+    if not request.url:
+        raise HTTPException(status_code=400, detail="URL cannot be empty.")
+    
+    try:
+        scraped_text = await scrape_job_description(request.url)
+        if not scraped_text:
+            raise HTTPException(status_code=404, detail="Could not extract a job description from the URL. The content might be dynamic or protected.")
+        return ScrapeResponse(job_description=scraped_text)
+    except Exception as e:
+        logger.error(f"Scraping failed for URL {request.url}: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred while scraping: {e}")
+
 
 @app.post("/v1/analyze", response_model=AnalysisResponse)
 async def analyze_resume(
