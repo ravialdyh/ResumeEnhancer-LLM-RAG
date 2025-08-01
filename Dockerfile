@@ -1,15 +1,11 @@
-# Dockerfile (for Streamlit Frontend)
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy only the frontend-specific requirements file
 COPY frontend-requirements.txt .
 
-# Install frontend dependencies
 RUN pip install --no-cache-dir -r frontend-requirements.txt
 
-# Install Playwright browsers
 RUN playwright install
 
 COPY . .

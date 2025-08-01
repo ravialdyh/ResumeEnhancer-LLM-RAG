@@ -184,12 +184,10 @@ def main():
     """Main application flow."""
     initialize_session_state()
 
-    # --- Authentication Flow ---
     if not st.session_state.token:
         handle_auth()
         st.stop()
 
-    # --- Main App Layout ---
     with st.sidebar:
         handle_sidebar()
 
@@ -197,7 +195,6 @@ def main():
     st.markdown("<h4>Generate optimized resume given your existing CV and dream job description with AI</h4>", unsafe_allow_html=True)
     st.write("")
 
-    # --- Page/View Router ---
     if st.session_state.analysis_status in ['NOT_STARTED', 'FAILED']:
         handle_upload_and_input()
     elif st.session_state.analysis_status in ['PENDING', 'OPTIMIZING']:

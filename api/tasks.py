@@ -21,7 +21,6 @@ def run_analysis_task(analysis_id: str, resume_bytes: bytes, mime_type: str, job
         db_service.update_analysis_status(analysis_id, "FAILED")
         logger.error(f"Analysis {analysis_id} failed: {e}")
 
-# --- ADD THIS NEW TASK ---
 @shared_task(name='run_optimization')
 def run_optimization_task(analysis_id: str):
     """

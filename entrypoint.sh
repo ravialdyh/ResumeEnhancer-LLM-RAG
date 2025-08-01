@@ -1,14 +1,17 @@
 #!/bin/sh
 
-until psql -h "db" -U "user" -d "resume_db" -c '\q'; do
-  >&2 echo "Postgres is unavailable - sleeping"
+set -e
+
+echo "Waiting for PostgreSQL to be ready..."
+
+while ! pg_isready -d "$DATABASE_URL" -q; do
   sleep 1
 done
+echo "PostgreSQL is ready."
 
->&2 echo "Postgres is up - executing command"
-
-# Run database migrations
+echo "Applying database migrations..."
 alembic upgrade head
 
-# Start the FastAPI application
+# Start the main application
+echo "Starting FastAPI server..."
 exec uvicorn api.main:app --host 0.0.0.0 --port 8000

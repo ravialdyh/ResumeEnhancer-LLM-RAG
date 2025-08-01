@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn[standard]
 python-jose[cryptography]
@@ -16,3 +17,10 @@ prometheus-fastapi-instrumentator
 beautifulsoup4
 playwright
 trafilatura
+google-genai
+pydantic
+torch
+faiss-cpu
+sentence-transformers
+python-dotenv
+python-multipart

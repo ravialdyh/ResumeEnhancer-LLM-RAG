@@ -2,7 +2,6 @@ import os
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_limiter import FastAPILimiter
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
 import sentry_sdk
@@ -11,19 +10,19 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, UTC
 import uuid
-import redis.asyncio as redis
 
 from .tasks import run_analysis_task, run_optimization_task
 from utils.job_scraper import scrape_job_description
 from database.service import DatabaseService
-from database.models import AppUser
 
+from sqlalchemy.orm import Session
+from database.service import DatabaseService
+from database.models import AppUser, get_db
 
 sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"), traces_sample_rate=1.0)
 
 app = FastAPI(title="Resume Enhancer API", version="v1")
 db_service = DatabaseService()
-
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -32,13 +31,7 @@ SECRET_KEY = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-
-
-redis_client = redis.Redis.from_url("redis://redis:6379/0")
-FastAPILimiter.init(redis_client)
-
 
 Instrumentator().instrument(app).expose(app)
 
@@ -61,25 +54,28 @@ class User(BaseModel):
     id: int
     username: str
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)): 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-        return db_service.get_user_by_username(username)
+        
+        return db_service.get_user_by_username(db, username=username)
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 @app.post("/users", response_model=User)
-def create_user(user: UserCreate):
+def create_user(user: UserCreate, db: Session = Depends(get_db)): 
     hashed_password = pwd_context.hash(user.password)
-    db_user = db_service.create_user(username=user.username, hashed_password=hashed_password)
+    
+    db_user = db_service.create_user(db=db, username=user.username, hashed_password=hashed_password)
     return db_user
 
 @app.post("/token", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db_service.authenticate_user(form_data.username, form_data.password)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)): 
+    
+    user = db_service.authenticate_user(db=db, username=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -115,11 +111,13 @@ async def scrape_job(request: ScrapeRequest, current_user: User = Depends(get_cu
 async def analyze_resume(
     job_description: str = Form(...),
     resume_file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db) 
 ):
     resume_bytes = await resume_file.read()
     session_id = str(uuid.uuid4())
     analysis = db_service.create_initial_analysis(
+        db=db, 
         session_id=session_id,
         user_id=current_user.id,
         original_filename=resume_file.filename,
@@ -130,15 +128,15 @@ async def analyze_resume(
     return {"analysis_id": str(analysis.id), "message": "Analysis queued successfully."}
 
 @app.get("/v1/analysis/{analysis_id}")
-def get_analysis_results(analysis_id: str, current_user: User = Depends(get_current_user)):
-    results = db_service.get_analysis_by_id(analysis_id, user_id=current_user.id)
+def get_analysis_results(analysis_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)): 
+    results = db_service.get_analysis_by_id(db=db, analysis_id=analysis_id, user_id=current_user.id) 
     if not results:
         raise HTTPException(status_code=404, detail="Analysis not found or unauthorized")
     return results
 
 @app.post("/v1/optimize/{analysis_id}", status_code=status.HTTP_202_ACCEPTED)
-def optimize_resume(analysis_id: str, current_user: User = Depends(get_current_user)):
-    analysis = db_service.get_analysis_by_id(analysis_id, user_id=current_user.id)
+def optimize_resume(analysis_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)): 
+    analysis = db_service.get_analysis_by_id(db=db, analysis_id=analysis_id, user_id=current_user.id) 
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found or unauthorized")
 

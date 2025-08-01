@@ -1,8 +1,7 @@
 # backend.Dockerfile
-FROM python:3.10-slim
+FROM python:3.11-slim
 WORKDIR /app
 
-# Use the correct package name here
 RUN apt-get update && apt-get install -y postgresql-client
 
 COPY backend-requirements.txt .
