@@ -8,6 +8,7 @@ loguru
 prometheus-client
 sentry-sdk
 alembic
+black
 sqlalchemy
 psycopg2-binary
 fastapi-limiter

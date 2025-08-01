@@ -81,3 +81,62 @@ This details the steps to deploy the application on an AWS EC2 instance.
         --env DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME" \
         YOUR_ECR_IMAGE_URI:latest
         ```
+```
+ResumeEnhancer-LLM-RAG
+├─ .DS_Store
+├─ .dockerignore
+├─ .streamlit
+│  └─ config.toml
+├─ Dockerfile
+├─ README.md
+├─ alembic
+│  ├─ env.py
+│  ├─ templates
+│  │  └─ script.py.mako
+│  └─ versions
+├─ alembic.ini
+├─ api
+│  ├─ main.py
+│  └─ tasks.py
+├─ app.py
+├─ backend-requirements.txt
+├─ backend.Dockerfile
+├─ database
+│  ├─ __init__.py
+│  ├─ models.py
+│  └─ service.py
+├─ docker-compose.yml
+├─ entrypoint.sh
+├─ frontend-requirements.txt
+├─ images
+│  ├─ resume-enhance-2.png
+│  └─ resume-enhancer-1.png
+├─ static
+│  ├─ .DS_Store
+│  └─ fonts
+│     ├─ .DS_Store
+│     ├─ OFL-SpaceGrotesk.txt
+│     ├─ OFL-SpaceMono.txt
+│     ├─ SpaceGrotesk-Bold.ttf
+│     ├─ SpaceGrotesk-Light.ttf
+│     ├─ SpaceGrotesk-Medium.ttf
+│     ├─ SpaceGrotesk-Regular.ttf
+│     ├─ SpaceGrotesk-SemiBold.ttf
+│     ├─ SpaceGrotesk-VariableFont_wght.ttf
+│     ├─ SpaceMono-Bold.ttf
+│     ├─ SpaceMono-BoldItalic.ttf
+│     ├─ SpaceMono-Italic.ttf
+│     └─ SpaceMono-Regular.ttf
+├─ utils
+│  ├─ __init__.py
+│  ├─ document_parser.py
+│  ├─ job_scraper.py
+│  ├─ rag_system.py
+│  ├─ resume_analyzer.py
+│  └─ text_processor.py
+├─ worker-requirements.txt
+├─ worker.Dockerfile
+└─ workers
+   └─ celery_app.py
+
+```

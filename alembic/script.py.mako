@@ -1,4 +1,3 @@
-## -*- coding: utf-8 -*-
 """${message}
 
 Revision ID: ${up_revision}
@@ -8,9 +7,7 @@ Create Date: ${create_date}
 """
 from alembic import op
 import sqlalchemy as sa
-% if imports:
-${imports}
-% endif
+${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
 revision = ${repr(up_revision)}
@@ -20,8 +17,8 @@ depends_on = ${repr(depends_on)}
 
 
 def upgrade():
-    ${upgrade}
+    ${upgrades if upgrades else "pass"}
 
 
 def downgrade():
-    ${downgrade}
+    ${downgrades if downgrades else "pass"}
