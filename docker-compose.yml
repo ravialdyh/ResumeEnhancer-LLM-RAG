@@ -5,27 +5,31 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8501:8501"
-    env_file: .env
     depends_on:
       - backend
-    networks:
-      - app-network
+    environment:
+      - API_BASE_URL=http://backend:8000
 
   backend:
     build:
       context: .
       dockerfile: backend.Dockerfile
+    restart: unless-stopped
+    command: ["/app/entrypoint.sh"]
+    volumes:
+      - .:/app
     ports:
       - "8000:8000"
-    env_file: .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
       - db
       - redis
-    command: ["/entrypoint.sh"]
     networks:
-      - app-network
-    volumes:
-      - .:/app
+      - default
 
   db:
     image: postgres:13
