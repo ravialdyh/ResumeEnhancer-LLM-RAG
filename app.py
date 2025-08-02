@@ -415,15 +415,18 @@ def handle_analysis_display():
 
     col1, col2 = st.columns(2, gap="medium")
     with col1.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">:material/thumb_up:</span>Strengths</h5>', unsafe_allow_html=True)
+        st.markdown('<h5><span class="material-icons" style="vertical-align: middle; margin-right: 0.5rem;">thumb_up</span>Strengths</h5>', unsafe_allow_html=True)
         for strength in results.get('strengths', ["No strengths identified."]):
             st.markdown(f"- {strength}")
-        st.markdown('<br><h5><span style="margin-right: 0.5rem;">:material/key_off:</span>Missing Keywords</h5>', unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.markdown('<h5><span class="material-icons" style="vertical-align: middle; margin-right: 0.5rem;">key_off</span>Missing Keywords</h5>', unsafe_allow_html=True)
         for keyword in results.get('missing_keywords', ["No missing keywords."]):
             st.markdown(f"- `{keyword}`")
 
     with col2.container(border=True):
-        st.markdown('<h5><span style="margin-right: 0.5rem;">:material/construction:</span>Recommended Improvements</h5>', unsafe_allow_html=True)
+        st.markdown('<h5><span class="material-icons" style="vertical-align: middle; margin-right: 0.5rem;">construction</span>Recommended Improvements</h5>', unsafe_allow_html=True)
         if not results.get('improvements'):
             st.info("No specific improvements were suggested.")
         else:
@@ -449,7 +452,7 @@ def handle_analysis_display():
 def render_success_page():
     """Displays the final success page with download options."""
     st.balloons()
-    st.markdown('<h1>:material/celebration: Your Optimized Resume is Ready!</h1>', unsafe_allow_html=True)
+    st.markdown('<h1><span class="material-icons" style="vertical-align: -0.1em; font-size: 1.1em; margin-right: 0.2em;">celebration</span>Your Optimized Resume is Ready!</h1>', unsafe_allow_html=True)
     st.markdown("Your resume has been tailored to the job description. Download it below or start a new session.")
 
     pdf_data = generate_templated_pdf(st.session_state.optimized_resume)

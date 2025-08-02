@@ -1,15 +1,23 @@
-# backend.Dockerfile
 FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y postgresql-client
+RUN addgroup --system app && adduser --system --group app
 
 COPY backend-requirements.txt .
 RUN pip install --no-cache-dir -r backend-requirements.txt
 
-RUN playwright install
+RUN playwright install --with-deps
 
 COPY . .
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+RUN chown -R app:app /app
+
+USER app
+
+CMD ["/app/entrypoint.sh"]
