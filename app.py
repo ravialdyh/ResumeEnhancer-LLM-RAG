@@ -233,10 +233,14 @@ def handle_auth():
             if st.form_submit_button("Sign Up"):
                 try:
                     response = requests.post(f"{API_BASE_URL}/users", json={"username": new_username, "password": new_password})
-                    if response.status_code == 200:
+                    if 200 <= response.status_code < 300:
                         st.success("Sign up successful! Please login.")
                     else:
-                         st.error(f"Sign up failed: {response.json().get('detail', 'Could not create user')}")
+                        try:
+                            detail = response.json().get('detail', response.text)
+                        except requests.exceptions.JSONDecodeError:
+                            detail = response.text
+                        st.error(f"Sign up failed: {detail}")
                 except requests.exceptions.RequestException as e:
                     st.error(f"Connection error: {e}")
 

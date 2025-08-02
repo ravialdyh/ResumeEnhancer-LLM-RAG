@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy.exc import IntegrityError
 import sentry_sdk
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -54,6 +55,9 @@ class User(BaseModel):
     id: int
     username: str
 
+    class Config:
+        orm_mode = True
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)): 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -66,11 +70,16 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 @app.post("/users", response_model=User)
-def create_user(user: UserCreate, db: Session = Depends(get_db)): 
-    hashed_password = pwd_context.hash(user.password)
-    
-    db_user = db_service.create_user(db=db, username=user.username, hashed_password=hashed_password)
-    return db_user
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    try:
+        hashed_password = pwd_context.hash(user.password)
+        db_user = db_service.create_user(db=db, username=user.username, hashed_password=hashed_password)
+        return db_user
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists."
+        )
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)): 

@@ -68,8 +68,10 @@ def create_tables():
         logger.error(f"Error creating database tables: {str(e)}")
         raise
 
-def get_db() -> Session:
-    """Get database session"""
+def get_db():
+    """
+    This creates a new session for each request and closes it when done.
+    """
     db = SessionLocal()
     try:
         yield db
