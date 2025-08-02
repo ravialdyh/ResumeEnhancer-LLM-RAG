@@ -4,7 +4,7 @@ from sqlalchemy import (
     create_engine, Column, Integer, String, Text, DateTime, Float, JSON, Boolean,
     Index, PrimaryKeyConstraint, ForeignKeyConstraint
 )
-from sqlalchemy.orm import sessionmaker, Session, declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
 import logging
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -36,7 +36,7 @@ class ResumeAnalysis(Base):
 
     id = Column(Integer, primary_key=True)
     session_id = Column(String(255), index=True)
-    user_id = Column(Integer, nullable=False) # Foreign key is defined in __table_args__
+    user_id = Column(Integer, nullable=False)
     original_filename = Column(String(255))
     resume_text = Column(Text)
     job_description = Column(Text)

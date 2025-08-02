@@ -5,3 +5,4 @@ beautifulsoup4
 playwright
 trafilatura
 xhtml2pdf
+python-jose[cryptography]

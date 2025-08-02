@@ -5,6 +5,7 @@ import requests
 from io import BytesIO
 from xhtml2pdf import pisa
 from dotenv import load_dotenv
+from jose import jwt, JWTError
 
 load_dotenv()
 
@@ -16,9 +17,12 @@ st.set_page_config(
 )
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+SECRET_KEY = os.getenv("JWT_SECRET") 
+ALGORITHM = "HS256" 
 
 # Styling
 st.markdown(r"""
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
     .progress-pill { background-color: #f0f0ec; color: #3d3a2a; border-radius: 9999px; padding: 0.5rem 1rem; margin-bottom: 0.5rem; font-weight: 500; display: flex; align-items: center; border: 1px solid #d3d2ca; }
@@ -32,6 +36,7 @@ st.markdown(r"""
     </style>
     """, 
     unsafe_allow_html=True)
+
 
 def initialize_session_state():
     """Initialize frontend-specific session state variables."""
@@ -176,7 +181,7 @@ def generate_templated_pdf(resume_data: dict) -> bytes:
     if not pdf.err:
         return result.getvalue()
     else:
-        st.toast(f"Error converting HTML to PDF: {pdf.err}", icon="❌")
+        st.toast(f"Error converting HTML to PDF: {pdf.err}", icon=":material/error:")
         return None
 
 
@@ -259,7 +264,7 @@ def handle_upload_and_input():
             st.session_state.resume_mime_type = uploaded_file.type
             st.session_state.uploaded_filename = uploaded_file.name
         if st.session_state.resume_bytes:
-            st.success(f"✅ Loaded: **{st.session_state.uploaded_filename}**")
+            st.success(f"Loaded: **{st.session_state.uploaded_filename}**", icon=":material/check_circle:")
 
     with col2.container(border=True):
         st.markdown("##### :material/ads_click: Target Job Description")
@@ -289,7 +294,7 @@ def handle_upload_and_input():
             placeholder="Paste the job description you are applying for, or scrape it from a URL above."
         )
         if st.session_state.job_description:
-            st.success("✅ Job description added.")
+            st.success("Job description added.", icon=":material/check_circle:")
 
     _, center_col, _ = st.columns([2, 3, 2])
     with center_col:
@@ -314,14 +319,13 @@ def handle_upload_and_input():
 def handle_sidebar():
     """Render the sidebar content."""
     st.markdown("### :material/settings: Settings")
-    st.success("✅ Logged in.")
+    st.success("Logged in.", icon=":material/check_circle:")
     
-    # Decode JWT to get username
     try:
-        payload = jwt.decode(st.session_state.token, options={"verify_signature": False})
+        payload = jwt.decode(st.session_state.token, SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get('sub', 'User')
         st.markdown(f"Logged in as: **{username}**", unsafe_allow_html=True)
-    except jwt.DecodeError:
+    except JWTError:
         st.markdown("Logged in as: **User**", unsafe_allow_html=True)
     
     if st.button("Logout"):
@@ -338,16 +342,22 @@ def handle_sidebar():
         ("Resume generated", st.session_state.analysis_status == 'COMPLETED' and st.session_state.optimized_resume is not None)
     ]
     for item, completed in progress_items:
-        emoji = "✅" if completed else "⏳"
+        icon_name = "check_circle" if completed else "hourglass_top"
         status_class = "completed" if completed else ""
-        st.markdown(f'<div class="progress-pill {status_class}"><span class="emoji">{emoji}</span>{item}</div>', unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class="progress-pill {status_class}">
+                <span class="material-icons emoji">{icon_name}</span>
+                {item}
+            </div>
+        """, unsafe_allow_html=True)
 
     st.divider()
-    if st.button("🔄 Start New Session", type="secondary", use_container_width=True):
-        token = st.session_state.token  # Preserve token
+    if st.button("Start New Session", icon=":material/refresh:", type="secondary", use_container_width=True):
+        token = st.session_state.token
         for key in st.session_state.keys():
             del st.session_state[key]
-        st.session_state.token = token  # Restore token
+        st.session_state.token = token
         initialize_session_state()
         st.rerun()
 
@@ -426,7 +436,7 @@ def handle_analysis_display():
     st.divider()
     _, center_col, _ = st.columns([1, 2, 1])
     with center_col:
-        if st.button("✨ Generate My Optimized Resume!", type="primary", use_container_width=True):
+        if st.button("Generate My Optimized Resume!", icon=":material/auto_awesome:", type="primary", use_container_width=True):
             headers = {"Authorization": f"Bearer {st.session_state.token}"}
             try:
                 response = requests.post(f"{API_BASE_URL}/v1/optimize/{st.session_state.current_analysis_id}", headers=headers)
@@ -439,19 +449,20 @@ def handle_analysis_display():
 def render_success_page():
     """Displays the final success page with download options."""
     st.balloons()
-    st.markdown('<h1><span style="margin-right: 0.75rem;">🎉</span>Your Optimized Resume is Ready!</h1>', unsafe_allow_html=True)
+    st.markdown('<h1>:material/celebration: Your Optimized Resume is Ready!</h1>', unsafe_allow_html=True)
     st.markdown("Your resume has been tailored to the job description. Download it below or start a new session.")
 
     pdf_data = generate_templated_pdf(st.session_state.optimized_resume)
     if pdf_data:
         file_name = f"Optimized_Resume_{os.path.splitext(st.session_state.uploaded_filename)[0]}.pdf" if st.session_state.uploaded_filename else "Optimized_Resume.pdf"
         st.download_button(
-            label="📄 Download Optimized Resume (PDF)",
+            label="Download Optimized Resume (PDF)",
             data=pdf_data,
             file_name=file_name,
             mime="application/pdf",
             type="primary",
-            use_container_width=True
+            use_container_width=True,
+            icon=":material/download:"
         )
 
     with st.expander("View Raw Optimized Data (JSON)"):
