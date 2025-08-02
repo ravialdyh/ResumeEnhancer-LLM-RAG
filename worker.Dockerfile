@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED 1
 
 WORKDIR /app
 
-RUN addgroup --system app && adduser --system --group app
+RUN addgroup --system app && adduser --system --group --home /home/app --shell /bin/false app
 
 COPY worker-requirements.txt .
 RUN pip install --no-cache-dir -r worker-requirements.txt

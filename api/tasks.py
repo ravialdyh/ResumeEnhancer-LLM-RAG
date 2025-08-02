@@ -6,6 +6,7 @@ from celery import shared_task
 from google import genai
 from utils.resume_analyzer import ResumeAnalyzer
 from database.service import DatabaseService
+from workers.celery_app import celery_app
 
 db_service = DatabaseService()
 
