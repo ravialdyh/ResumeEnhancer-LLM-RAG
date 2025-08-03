@@ -3,7 +3,7 @@ fastapi
 uvicorn[standard]
 python-jose[cryptography]
 passlib[bcrypt]
-bcrypt
+bcrypt<4.1
 celery
 redis
 loguru
@@ -25,3 +25,4 @@ faiss-cpu
 sentence-transformers
 python-dotenv
 python-multipart
+pytz
