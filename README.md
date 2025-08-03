@@ -1,265 +1,116 @@
-# Resume Enhancer using LLM and RAG
+# End to End Resume Aligner (LLM + RAG) with Restful API
 
-Do you want to align your CV more with your dream job? Just upload your CV and dream job description then we will generate optimized resume for you! This repo leverages Google's Gemini AI model, Retrieval-Augmented Generation (RAG) techniques, and document parsing capabilities to provide intelligent resume analysis and optimization suggestions.
+Do you want to make your resume a perfect match for your dream job? Just upload your resume and the job description, and this app will use AI to create an optimized version for you\!
 
-![Resume Enhancer image 1](images/resume-enhancer-1.png)
+### Video Demo
 
-![Resume Enhancer image 2](images/resume-enhance-2.png)
-
-## Tech Stack Overview
-
-| Category      | Technology / Service                                                                               | Purpose                                                                                                                                              |
-| :------------ | :------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Cloud** | Amazon Web Services (AWS)                                                                          | Hosting the entire application infrastructure.                                                                                                       |
-| **Database** | AWS RDS for PostgreSQL                                                                             | Provides a managed, persistent SQL database to store user sessions and analysis results.                                                 |
-| **Container** | Docker                                                                                             | Packages the Streamlit application, all its dependencies, and static assets (like fonts) into a portable image for consistent deployment. |
-| **Registry** | AWS ECR (Elastic Container Registry)                                                               | A private registry to store and manage the application's Docker image.                                                                               |
-| **Compute** | AWS EC2 (Elastic Compute Cloud)                                                                    | A virtual server that runs the Docker container, providing direct control over the environment and networking.                                       |
-| **Framework** | Streamlit                                                                                          | The Python framework used to build the interactive web application UI.                                                                               |
-| **AI** | Google Gemini Flash 2.5                                                                                      | The Large Language Model used for resume analysis and optimization.                                                                      |
-| **RAG** | `sentence-transformers`, FAISS                                                                     | Used to create text embeddings and perform similarity searches for the Retrieval-Augmented Generation system.                               |
+![Resume Aligner Demo GIF](images/demo.gif)
 
 -----
 
-## Deployment
+This project uses Google's powerful Gemini AI model, Retrieval-Augmented Generation (RAG), and a modern RESTful API architecture to give you smart suggestions for improving your resume.
 
-This details the steps to deploy the application on an AWS EC2 instance.
+-----
 
-### 1\. Database Setup
+## 🛠️ Tech Stack
 
-  * **Tech:** AWS RDS, PostgreSQL
-  * **Purpose:** The application requires a persistent database to store session data and the results of each resume analysis.
-  * **Action:**
-    1.  Create a new **PostgreSQL** database instance using **AWS RDS**.
-    2.  During setup, define a **Master username**, **Master password**, and an **Initial database name**. Store these credentials securely.
-    3.  Configure the RDS instance's **Security Group** to be ready for the EC2 instance connection.
+This project uses a combination of modern technologies to deliver a full-stack AI experience.
 
-### 2\. Containerization
+| Category | Technology / Service | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | Streamlit | To build the beautiful and interactive web user interface. |
+| **Backend** | FastAPI | To create a fast, modern, and reliable RESTful API. |
+| **Database** | PostgreSQL | To store all user data, analysis tasks, and results permanently. |
+| **Async Tasks** | Celery & Redis | To run heavy AI analysis in the background without slowing down the website. |
+| **AI Model** | Google Gemini | The large language model that analyzes and rewrites the resume content. |
+| **RAG System**| `sentence-transformers`, FAISS | To create text embeddings and find the most relevant skills. |
+| **Containerization**| Docker & Docker Compose | To package the entire application for easy setup and deployment. |
+| **Web Scraping**| Playwright | To automatically scrape job descriptions from LinkedIn URLs. |
+| **Deployment** | Amazon Web Services (AWS) | The application is designed to be easily deployed on the cloud. |
 
-  * **Tech:** Docker, `requirements.txt`
-  * **Purpose:** To create a self-contained, portable image of the application. This ensures that it runs the same way everywhere.
-  * **Actions:**
-    1.  Create a `Dockerfile` in the project root to define the build steps.
-    2.  Create a `.dockerignore` file to exclude secrets (like `.env`) and unnecessary files from the image.
-    3.  Modify `requirements.txt` to use the CPU-only version of PyTorch to reduce image size and prevent build errors:
-        ```
-        --extra-index-url https://download.pytorch.org/whl/cpu
-        ...
-        torch
-        sentence-transformers
-        ...
-        ```
-    4.  Build the Docker image locally, tag it, and push it to a private repository on **AWS ECR**.
+-----
 
-### 3\. Compute Setup
+## 🚀 Running the Project Locally
 
-  * **Tech:** AWS EC2, Docker
-  * **Purpose:** To create a virtual server where the application container will run.
-  * **Actions:**
-    1.  Launch an **EC2 instance** (e.g., Ubuntu `t2.micro`).
-    2.  Create a new **Key Pair** and download the `.pem` file to connect to the instance via SSH.
-    3.  Create a new **Security Group** for the EC2 instance and add inbound rules to allow traffic on:
-          * **Port 22 (SSH)** from your IP address.
-          * **Port 8501 (Custom TCP)** from anywhere (`0.0.0.0/0`).
-    4.  Connect to the instance via SSH and install Docker, the AWS CLI, and the PostgreSQL client (`psql`).
+You can run this entire application on your own computer using Docker. It's very easy\!
 
-### 4\. Final Deployment
+### Prerequisites
 
-  * **Tech:** `psql`, Docker, `ssh`
-  * **Purpose:** To connect all the pieces and run the application.
-  * **Actions:**
-    1.  **Configure Networking:** Add an inbound rule to the **RDS Security Group** to allow PostgreSQL traffic (port 5432) from the **Private IP address** of your EC2 instance.
+  * **Docker** and **Docker Compose**: Make sure you have them installed on your computer.
+  * **Git**: To copy the project files.
+  * **Google Gemini API Key**: You need an API key from Google AI Studio.
 
-    2.  **Create the Database:** Connect to your RDS instance from the EC2 terminal using `psql` and run `CREATE DATABASE "your_db_name";` to create the database your application needs.
+### Step 1: Clone the Project
 
-    3.  **Run the Application:** From the EC2 terminal, pull the latest image from ECR and run the container using the `docker run` command, passing the `GEMINI_API_KEY` and `DATABASE_URL` as environment variables.
+Open your terminal and run this command to get the code:
 
-        ```bash
-        # Command to run the container on the EC2 instance
-        docker run -d -p 8501:8501 \
-        --env GEMINI_API_KEY="YOUR_API_KEY_HERE" \
-        --env DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB_NAME" \
-        YOUR_ECR_IMAGE_URI:latest
-        ```
+```bash
+git clone https://github.com/your-username/ResumeEnhancer-LLM-RAG.git
+cd ResumeEnhancer-LLM-RAG
 ```
-ResumeEnhancer-LLM-RAG
-├─ .DS_Store
-├─ .dockerignore
-├─ .streamlit
-│  └─ config.toml
-├─ Dockerfile
-├─ README.md
-├─ alembic
-│  ├─ env.py
-│  ├─ templates
-│  │  └─ script.py.mako
-│  └─ versions
-├─ alembic.ini
-├─ api
-│  ├─ main.py
-│  └─ tasks.py
-├─ app.py
-├─ backend-requirements.txt
-├─ backend.Dockerfile
-├─ database
-│  ├─ __init__.py
-│  ├─ models.py
-│  └─ service.py
-├─ docker-compose.yml
-├─ entrypoint.sh
-├─ frontend-requirements.txt
-├─ images
-│  ├─ resume-enhance-2.png
-│  └─ resume-enhancer-1.png
-├─ static
-│  ├─ .DS_Store
-│  └─ fonts
-│     ├─ .DS_Store
-│     ├─ OFL-SpaceGrotesk.txt
-│     ├─ OFL-SpaceMono.txt
-│     ├─ SpaceGrotesk-Bold.ttf
-│     ├─ SpaceGrotesk-Light.ttf
-│     ├─ SpaceGrotesk-Medium.ttf
-│     ├─ SpaceGrotesk-Regular.ttf
-│     ├─ SpaceGrotesk-SemiBold.ttf
-│     ├─ SpaceGrotesk-VariableFont_wght.ttf
-│     ├─ SpaceMono-Bold.ttf
-│     ├─ SpaceMono-BoldItalic.ttf
-│     ├─ SpaceMono-Italic.ttf
-│     └─ SpaceMono-Regular.ttf
-├─ utils
-│  ├─ __init__.py
-│  ├─ document_parser.py
-│  ├─ job_scraper.py
-│  ├─ rag_system.py
-│  ├─ resume_analyzer.py
-│  └─ text_processor.py
-├─ worker-requirements.txt
-├─ worker.Dockerfile
-└─ workers
-   └─ celery_app.py
 
-```
-```
-ResumeEnhancer-LLM-RAG
-├─ .DS_Store
-├─ .dockerignore
-├─ .streamlit
-│  └─ config.toml
-├─ Dockerfile
-├─ README.md
-├─ alembic
-│  ├─ env.py
-│  ├─ script.py.mako
-│  └─ versions
-│     └─ d670c96ff01e_initial_schema_setup.py
-├─ alembic.ini
-├─ api
-│  ├─ main.py
-│  └─ tasks.py
-├─ app.py
-├─ backend-requirements.txt
-├─ backend.Dockerfile
-├─ database
-│  ├─ __init__.py
-│  ├─ models.py
-│  └─ service.py
-├─ docker-compose.yml
-├─ entrypoint.sh
-├─ frontend-requirements.txt
-├─ images
-│  ├─ resume-enhance-2.png
-│  └─ resume-enhancer-1.png
-├─ scripts
-│  └─ download_model.py
-├─ static
-│  ├─ .DS_Store
-│  └─ fonts
-│     ├─ .DS_Store
-│     ├─ OFL-SpaceGrotesk.txt
-│     ├─ OFL-SpaceMono.txt
-│     ├─ SpaceGrotesk-Bold.ttf
-│     ├─ SpaceGrotesk-Light.ttf
-│     ├─ SpaceGrotesk-Medium.ttf
-│     ├─ SpaceGrotesk-Regular.ttf
-│     ├─ SpaceGrotesk-SemiBold.ttf
-│     ├─ SpaceGrotesk-VariableFont_wght.ttf
-│     ├─ SpaceMono-Bold.ttf
-│     ├─ SpaceMono-BoldItalic.ttf
-│     ├─ SpaceMono-Italic.ttf
-│     └─ SpaceMono-Regular.ttf
-├─ utils
-│  ├─ __init__.py
-│  ├─ document_parser.py
-│  ├─ job_scraper.py
-│  ├─ rag_system.py
-│  ├─ resume_analyzer.py
-│  └─ text_processor.py
-├─ worker-requirements.txt
-├─ worker.Dockerfile
-└─ workers
-   └─ celery_app.py
+### Step 2: Create Your Environment File
 
-```
-```
-ResumeEnhancer-LLM-RAG
-├─ .DS_Store
-├─ .dockerignore
-├─ .streamlit
-│  └─ config.toml
-├─ Dockerfile
-├─ README.md
-├─ alembic
-│  ├─ env.py
-│  ├─ script.py.mako
-│  └─ versions
-│     └─ d670c96ff01e_initial_schema_setup.py
-├─ alembic.ini
-├─ api
-│  ├─ main.py
-│  └─ tasks.py
-├─ app.py
-├─ backend-requirements.txt
-├─ backend.Dockerfile
-├─ database
-│  ├─ __init__.py
-│  ├─ models.py
-│  └─ service.py
-├─ docker-compose.yml
-├─ entrypoint.sh
-├─ frontend-requirements.txt
-├─ images
-│  ├─ resume-enhance-2.png
-│  └─ resume-enhancer-1.png
-├─ scripts
-│  ├─ download_model.py
-│  └─ scrape_linkedin.py
-├─ static
-│  ├─ .DS_Store
-│  └─ fonts
-│     ├─ .DS_Store
-│     ├─ OFL-SpaceGrotesk.txt
-│     ├─ OFL-SpaceMono.txt
-│     ├─ SpaceGrotesk-Bold.ttf
-│     ├─ SpaceGrotesk-Light.ttf
-│     ├─ SpaceGrotesk-Medium.ttf
-│     ├─ SpaceGrotesk-Regular.ttf
-│     ├─ SpaceGrotesk-SemiBold.ttf
-│     ├─ SpaceGrotesk-VariableFont_wght.ttf
-│     ├─ SpaceMono-Bold.ttf
-│     ├─ SpaceMono-BoldItalic.ttf
-│     ├─ SpaceMono-Italic.ttf
-│     └─ SpaceMono-Regular.ttf
-├─ utils
-│  ├─ __init__.py
-│  ├─ document_parser.py
-│  ├─ job_scraper.py
-│  ├─ rag_system.py
-│  ├─ resume_analyzer.py
-│  └─ text_processor.py
-├─ worker-requirements.txt
-├─ worker.Dockerfile
-└─ workers
-   └─ celery_app.py
+The project needs an environment file to store secret keys.
 
+1.  Create a new file named `.env` in the main project folder.
+2.  Copy the content below and paste it into your new `.env` file.
+
+<!-- end list -->
+
+```env
+# REQUIRED
+# Get your API key from Google AI Studio (https://aistudio.google.com/)
+GEMINI_API_KEY="YOUR_GOOGLE_API_KEY_HERE"
+
+# DO NOT CHANGE
+# Secret key for user authentication tokens
+JWT_SECRET="168b91157c7932822a9a83411a7a275494c2c544d65691038166946a15e61294"
+
+# Local Database Settings
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=resumedb
+DATABASE_URL="postgresql://user:password@db:5432/resumedb"
+
+# Local API Settings for Frontend
+API_BASE_URL=http://backend:8000
+
+# Celery & Redis Settings
+CELERY_BROKER_URL="redis://redis:6379/0"
+CELERY_RESULT_BACKEND="redis://redis:6379/0"
+
+# Optional: For error tracking
+SENTRY_DSN=
 ```
+
+3.  **Important**: Replace `"YOUR_GOOGLE_API_KEY_HERE"` with your actual Gemini API key.
+
+### Step 3: Build and Run the Application
+
+Now, run this single command in your terminal. It will build the Docker images and start all the services (frontend, backend, database, etc.).
+
+```bash
+docker compose up --build
+```
+
+The `--build` flag is important for the first time you run it. Wait for a few minutes for everything to download and start up. You will see a lot of logs in your terminal.
+
+### Step 4: Open the Application
+
+Once the services are running, open your web browser and go to:
+
+**http://localhost:8501**
+
+That's it\! You can now use the Resume Enhancer on your local machine.
+
+-----
+
+## ☁️ Deployment
+
+This application is built with Docker Compose, which makes it ready for cloud deployment. You can deploy it to any cloud provider that supports Docker, like AWS, Google Cloud, or Azure. The main steps would involve:
+
+1.  Setting up a virtual server (like **AWS EC2**).
+2.  Using a managed database service (like **AWS RDS for PostgreSQL**).
+3.  Storing the Docker images in a private registry (like **AWS ECR**).
+4.  Running the application using `docker-compose.yml` on the server.
