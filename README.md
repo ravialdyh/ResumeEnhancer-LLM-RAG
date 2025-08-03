@@ -4,7 +4,7 @@ Do you want to make your resume a perfect match for your dream job? Just upload 
 
 ### Video Demo
 
-![Resume Aligner Demo GIF](images/demo.gif)
+![Resume Aligner Demo GIF](images/demo_project.gif)
 
 -----
 
