@@ -38,6 +38,20 @@ SPOOF_FINGERPRINT_SCRIPT = '''
             enumerable: originalPropertyDescriptor.enumerable,
             configurable: originalPropertyDescriptor.configurable,
         });
+
+        const originalWorker = window.Worker;
+        window.Worker = new Proxy(originalWorker, {
+            construct(target, args) {
+                const worker = new target(...args);
+                const handleMessage = (event) => {
+                    if (event.data === 'spoofHardwareConcurrency') {
+                        worker.postMessage(navigator.hardwareConcurrency);
+                    }
+                };
+                worker.addEventListener('message', handleMessage);
+                return worker;
+            }
+        });
     })();
 '''
 

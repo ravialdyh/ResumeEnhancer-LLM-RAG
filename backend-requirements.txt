@@ -26,3 +26,8 @@ sentence-transformers
 python-dotenv
 python-multipart
 pytz
+PyPDF2
+pdfplumber
+python-docx
+PyMuPDF
+numpy
