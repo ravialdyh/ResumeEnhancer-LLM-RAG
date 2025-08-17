@@ -59,8 +59,6 @@ def initialize_session_state():
 def populate_html_template(resume_data: dict) -> str:
     """
     Populates the HTML template for PDF generation.
-    This function contains its own CSS for the PDF output, which is separate
-    from the Streamlit app's UI theme.
     """
     def build_experience_html(experiences):
         html = ""
@@ -73,10 +71,29 @@ def populate_html_template(resume_data: dict) -> str:
                 if tools: tasks_html += f'<div class="tools">Tools: {tools}</div>'
             additional = exp.get('additional', '')
             if additional: tasks_html += f"<p>{additional}</p>"
-            html += f"""<div class="experience-item"><div class="job-header"><span class="position">{exp.get('position', '')}</span><span class="date">{exp.get('dates', '')}</span></div><div class="company-header"><span class="institution">{exp.get('company', '')}</span><span class="location">{exp.get('location', '')}</span></div>{tasks_html}</div>"""
+            
+            html += f"""
+            <div class="experience-item">
+                <table class="experience-header-table">
+                    <tbody>
+                        <tr>
+                            <td class="position">{exp.get('position', '')}</td>
+                            <td class="date">{exp.get('dates', '')}</td>
+                        </tr>
+                        <tr>
+                            <td class="institution">{exp.get('company', '')}</td>
+                            <td class="location">{exp.get('location', '')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                {tasks_html}
+            </div>"""
+
         return html if html else ""
+    
     def build_simple_list_html(items):
         return f"<ul>{''.join([f'<li>{item}</li>' for item in items])}</ul>" if items else ""
+        
     def build_projects_html(projects):
         html = ""
         for proj in projects:
@@ -85,6 +102,7 @@ def populate_html_template(resume_data: dict) -> str:
             link = f'<a href="{proj.get("link", "")}">{proj.get("link", "")}</a>' if proj.get("link") else ""
             html += f"""<div class="experience-item"><div class="job-header"><span class="position">{proj.get('name', '')} {link}</span></div><ul>{bullets_html}</ul><div class="tools">Tools: {tools}</div></div>"""
         return html if html else ""
+        
     def build_education_html(educations):
         html = ""
         for edu in educations:
@@ -111,15 +129,15 @@ def populate_html_template(resume_data: dict) -> str:
         <title>{name} - Resume</title>
         <style>
             @font-face {{ 
-                font-family: 'Space Grotesk'; 
+                font-family: 'Space Grotesk';
                 src: url('static/fonts/SpaceGrotesk-VariableFont_wght.ttf'); 
             }}
             @font-face {{ 
-                font-family: 'Space Mono'; 
+                font-family: 'Space Mono';
                 src: url('static/fonts/SpaceMono-Regular.ttf'); 
             }}
             body {{ 
-                font-family: 'Space Grotesk', sans-serif; 
+                font-family: 'Space Grotesk', sans-serif;
                 font-size: 10.5pt; 
                 line-height: 1.5; 
                 color: #333; 
@@ -132,7 +150,7 @@ def populate_html_template(resume_data: dict) -> str:
                 margin: 0; 
                 padding-bottom: 10px; 
                 border-bottom: 2px solid #333; 
-                letter-spacing: 2px; 
+                letter-spacing: 2px;
             }}
             .contact-info {{ text-align: center; font-size: 10pt; margin-top: 8px; margin-bottom: 20px; }}
             h2 {{ 
@@ -141,17 +159,34 @@ def populate_html_template(resume_data: dict) -> str:
                 border-bottom: 1px solid #ccc; 
                 padding-bottom: 4px; 
                 margin-top: 20px; 
-                margin-bottom: 10px; 
+                margin-bottom: 10px;
             }}
             .experience-item {{ margin-bottom: 15px; page-break-inside: avoid; }}
-            .job-header, .company-header {{ display: flex; justify-content: space-between; width: 100%; }}
-            .position, .institution {{ font-weight: bold; }}
-            .date, .location {{ font-style: italic; color: #555; }}
+            
+            .experience-header-table {{
+                width: 100%;
+                border-collapse: collapse; /* Removes space between table cells */
+                margin-bottom: 5px; /* Adds a little space before the job description bullets */
+            }}
+            .experience-header-table td {{
+                padding: 0;
+                vertical-align: top;
+            }}
+            .position, .institution {{
+                font-weight: bold;
+                text-align: left;
+            }}
+            .date, .location {{
+                font-style: italic;
+                color: #555;
+                text-align: right;
+            }}
+            
             ul {{ padding-left: 20px; margin-top: 5px; margin-bottom: 5px; }}
             li {{ margin-bottom: 4px; }}
             p {{ margin: 0 0 10px 0; }}
             .tools {{ 
-                font-family: 'Space Mono', monospace; 
+                font-family: 'Space Mono', monospace;
                 font-size: 9pt; 
                 color: #444; 
                 margin-top: 5px; 
